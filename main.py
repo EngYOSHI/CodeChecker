@@ -102,16 +102,19 @@ def chkpath():
 
 
 def file2list(filename):
-	f = open(filename, 'r')
+	f = open(filename, 'r', encoding="utf-8")
 	l = f.readlines()
 	f.close()
 	for i in range(len(l)):
-		l[i] = l[i].rstrip("\n")
+		if l[i].strip() == "":
+			l.pop(i)
+		else:
+			l[i] = l[i].rstrip("\n")
 	return l
 
 
 def file2str(filename):
-	f = open(filename, 'r')
+	f = open(filename, 'r', encoding="utf-8")
 	s = f.read()
 	f.close()
 	return s
@@ -120,7 +123,7 @@ def file2str(filename):
 def readTaskFile(filename):
 	l = file2list(filename)
 	for i in range(len(l)):
-		if re.fullmatch(r'[1-9][0-9]*-A*[1-9][a-z]* [1-9]', l[i]):
+		if re.fullmatch(r'[1-9][0-9]*-((A[1-9])|([1-9][a-z]*)) [1-9]', l[i]):
 			temp = l[i].split(" ")
 			l[i] = {"name" : temp[0], "count" : int(temp[1]), "case" : []}
 		else:
