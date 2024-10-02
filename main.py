@@ -76,9 +76,12 @@ def error(msg, e=True):
 		sys.exit(1)
 
 
-def debug(msg):
+def debug(msg, title = None):
 	if DEBUG:
-		print("\033[32m" + str(msg) + "\033[0m")
+		if title is not None:
+			print("\033[42m" + str(title) + ":\033[0m\033[32m " + str(msg) + "\033[0m")
+		else:
+			print("\033[32m" + str(msg) + "\033[0m")
 
 
 if __name__ == "__main__":
