@@ -6,6 +6,7 @@ import pprint
 import difflib
 
 DEBUG = True
+PRINT_SCORE = True
 GCC_PATH = "./mingw64/bin/"
 SRC_PATH = "./src/"
 WORK_PATH = "./work/"
@@ -31,6 +32,11 @@ def eval_loop(students, tasks):
 			r = {"task": t["name"], "compile": None, "run":None}
 			r["compile"], r["run"] = eval(s, t)
 			res_student += [r]
+		if PRINT_SCORE:
+			printScore(s, res_student)
+		#pprint.pprint(res_student, sort_dicts=False)
+		#ここでcsv書き出し関数を呼び出す
+			
 
 
 def eval(s, t):
@@ -55,7 +61,7 @@ def compile(src: str) -> (bool, str):
 		res["reason"] = "No File"
 		return res
 	cmd = ["gcc.exe", src_abs, "-o", exe_abs]
-	r = subprocess.run(cmd, cwd=GCC_PATH, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,shell=True,text=True)
+	r = subprocess.run(cmd, cwd=GCC_PATH, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,shell=True, encoding="utf8", text=True)
 	res["stdout"] = r.stdout
 	if r.returncode != 0:
 		#コンパイル失敗
@@ -77,7 +83,7 @@ def run(src, taskfn, case):
 	if case["arg"] is not None:
 		debug(case["arg"], "arg")
 		cmd = cmd + " " + case["arg"]
-	r = subprocess.run(cmd, cwd=WORK_PATH, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,shell=True,text=True)
+	r = subprocess.run(cmd, cwd=WORK_PATH, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,shell=True, encoding="utf8", text=True)
 	res = {"result":None, "output":r.stdout, "ratio":None}
 	if case["out"] is not None:
 		res["ratio"] = difflib.SequenceMatcher(None, r.stdout, case["out"], False).ratio()
@@ -86,6 +92,31 @@ def run(src, taskfn, case):
 		else:
 			res["result"] = False
 	return res
+
+
+def printScore(s, res_student):
+	output = "Student No.: " + s
+	for r in res_student:
+		output += "\n\tTask: " + r["task"]
+		output += "\n\t\tCompile: " + bool2str(r["compile"]["result"], "OK", "NG")
+		if r["compile"]["result"]:
+			correct = 0
+			failed = 0
+			skip = 0
+			for i in range(len(r["run"])):
+				output += "\n\t\t[" + str(i) + "] -> Result: " + bool2str(r["run"][i]["result"], "OK", "NG", "SKIP")
+				if r["run"][i]["result"] is None:
+					skip += 1
+				elif r["run"][i]["result"] == True:
+					correct += 1
+				else:
+					output += f" (Ratio: {round(r["run"][i]["ratio"], 2)})"
+					failed += 1
+			output += f"\n\t\tSummary: {correct}/{correct + failed}  (skip:{skip})"
+		else:
+			output += " (" + r["compile"]["reason"] + ")"
+	print(output + "\n")
+	
 
 
 def chkpath():
@@ -147,6 +178,15 @@ def readCaseFile(l):
 				d["in"] = file2str(file_in)
 			l[i]["case"] += [d]
 	return l
+
+
+def bool2str(b, t, f, none = None):
+	if b is None:
+		return "\033[46m" + none + "\033[0m"
+	elif b:
+		return "\033[44m" + t + "\033[0m"
+	else:
+		return "\033[41m" + f + "\033[0m"
 
 
 def error(msg, e=True):
