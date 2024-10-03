@@ -11,6 +11,7 @@ GCC_PATH = "./mingw64/bin/"
 SRC_PATH = "./src/"
 WORK_PATH = "./work/"
 CASE_PATH = "./case/"
+TIMEOUT = 10
 
 
 def main():
@@ -83,11 +84,21 @@ def run(src, taskfn, case):
 	if case["arg"] is not None:
 		debug(case["arg"], "arg")
 		cmd = cmd + " " + case["arg"]
-	r = subprocess.run(cmd, cwd=WORK_PATH, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,shell=True, encoding="utf8", text=True)
-	res = {"result":None, "output":r.stdout, "ratio":None}
+	res = {"result":None, "output":"", "ratio":None}
+	proc = subprocess.Popen(cmd, cwd=WORK_PATH, stdout=subprocess.PIPE, shell=True, encoding="utf8", text=True)
+	try:
+		r = proc.communicate(timeout=TIMEOUT)
+	except subprocess.TimeoutExpired:
+		#タイムアウトの時はratioが-1
+		proc.kill()
+		debug("Time Out.", "run")
+		res["result"] = False
+		res["ratio"] = -1
+		return res
+	res["output"] = r[0]
 	if case["out"] is not None:
-		res["ratio"] = difflib.SequenceMatcher(None, r.stdout, case["out"], False).ratio()
-		if r.stdout == case["out"]:
+		res["ratio"] = difflib.SequenceMatcher(None, r[0], case["out"], False).ratio()
+		if r[0] == case["out"]:
 			res["result"] = True
 		else:
 			res["result"] = False
@@ -110,8 +121,11 @@ def printScore(s, res_student):
 				elif r["run"][i]["result"] == True:
 					correct += 1
 				else:
-					output += f" (Ratio: {round(r["run"][i]["ratio"], 2)})"
 					failed += 1
+					if r["run"][i]["ratio"] == -1:
+						output += f" (TimeOut)"
+					else:
+						output += f" (Ratio: {round(r["run"][i]["ratio"], 2)})"
 			output += f"\n\t\tSummary: {correct}/{correct + failed}  (skip:{skip})"
 		else:
 			output += " (" + r["compile"]["reason"] + ")"
