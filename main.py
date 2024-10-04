@@ -62,12 +62,14 @@ def compile(src: str) -> (bool, str):
 		res["reason"] = "No File"
 		return res
 	cmd = ["gcc.exe", src_abs, "-o", exe_abs]
-	r = subprocess.run(cmd, cwd=GCC_PATH, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,shell=True, encoding="utf8", text=True)
-	res["stdout"] = r.stdout
+	r = subprocess.run(cmd, cwd=GCC_PATH, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,shell=True)
+	res["stdout"] = byte2str(r.stdout)
 	if r.returncode != 0:
 		#コンパイル失敗
 		res["result"] = False
 		res["reason"] = "Compile Error"
+		if res["stdout"] is None:
+			res["reason"] += " + Not supported encoding"
 	return res
 
 
@@ -84,23 +86,28 @@ def run(src, taskfn, case):
 	if case["arg"] is not None:
 		debug(case["arg"], "arg")
 		cmd = cmd + " " + case["arg"]
-	res = {"result":None, "output":"", "ratio":None}
-	proc = subprocess.Popen(cmd, cwd=WORK_PATH, stdout=subprocess.PIPE, shell=True, encoding="utf8", text=True)
+	res = {"result":None, "reason":None, "output":None, "ratio":None}
+	proc = subprocess.Popen(cmd, cwd=WORK_PATH, stdout=subprocess.PIPE, shell=True)
 	try:
 		r = proc.communicate(timeout=TIMEOUT)
 	except subprocess.TimeoutExpired:
-		#タイムアウトの時はratioが-1
+		#タイムアウト
 		proc.kill()
 		debug("Time Out.", "run")
 		res["result"] = False
-		res["ratio"] = -1
+		res["reason"] = "Timeout"
 		return res
-	res["output"] = r[0]
+	res["output"] = byte2str(r[0])  #標準出力のバイトストリームを文字列に変換
 	if case["out"] is not None:
-		res["ratio"] = difflib.SequenceMatcher(None, r[0], case["out"], False).ratio()
-		if r[0] == case["out"]:
+		if res["output"] is None:
+			res["result"] = False
+			res["reason"] = "Stdout encoding error"
+			return res
+		res["ratio"] = difflib.SequenceMatcher(None, res["output"], case["out"], False).ratio()
+		if res["output"] == case["out"]:
 			res["result"] = True
 		else:
+			res["reason"] = "Not matched"
 			res["result"] = False
 	return res
 
@@ -122,10 +129,10 @@ def printScore(s, res_student):
 					correct += 1
 				else:
 					failed += 1
-					if r["run"][i]["ratio"] == -1:
-						output += f" (TimeOut)"
-					else:
-						output += f" (Ratio: {round(r["run"][i]["ratio"], 2)})"
+					if r["run"][i]["reason"] is not None:
+						output += f" (Reason: {r['run'][i]['reason']})"
+					if r["run"][i]["ratio"] is not None:
+						output += f" (Ratio: {round(r['run'][i]['ratio'], 2)})"
 			output += f"\n\t\tSummary: {correct}/{correct + failed}  (skip:{skip})"
 		else:
 			output += " (" + r["compile"]["reason"] + ")"
@@ -192,6 +199,27 @@ def readCaseFile(l):
 				d["in"] = file2str(file_in)
 			l[i]["case"] += [d]
 	return l
+
+
+def byte2str(byte) -> str:
+	try:
+		#UTF8でデコードする
+		s = byte.decode("utf-8")
+		s = s.replace("\r\n","\n")
+		debug("utf-8", "byte2str")
+		return s
+	except:
+		pass
+	try:
+		#SJISでデコードする
+		s = byte.decode("cp932")
+		s = s.replace("\r\n","\n")
+		debug("cp932", "byte2str")
+		return s
+	except:
+		pass
+	debug("Not supported encoding", "byte2str")
+	return None
 
 
 def bool2str(b, t, f, none = None):
