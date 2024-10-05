@@ -16,6 +16,9 @@ TIMEOUT = 5
 NOCOLOR = False
 
 
+srclist = []
+
+
 def main():
 	students = file2list(CASE_PATH + "students.txt")
 	print("Number of Students: " + str(len(students)))
@@ -23,46 +26,82 @@ def main():
 	tasks = readTaskFile(CASE_PATH + "tasks.txt")
 	print("Number of tasks: " + str(len(tasks)))
 	tasks = readCaseFile(tasks)
+	makeSrcFileList()
+	debug(srclist)
+	print("Number of files in source directory: " + str(len(srclist)))
 	debug(pprint.pformat(tasks, sort_dicts=False))
-	eval_loop(students, tasks)
-	
+	res = eval_loop(students, tasks)
+	#pprint.pprint(res, sort_dicts=False)
+	print("Number of Unevaluated files: " + str(len(srclist)))
+	#ここでcsv書き出し関数を呼び出す
 
 
 def eval_loop(students, tasks):
+	res = []
 	for s in students:
 		res_student = []
 		for t in tasks:
-			r = {"task": t["name"], "compile": None, "run":None}
-			r["compile"], r["run"] = eval(s, t)
+			r = eval(s, t)
 			res_student += [r]
+		res += [{"student":s, "result":res_student}]
 		if PRINT_SCORE:
 			printScore(s, res_student)
-		#pprint.pprint(res_student, sort_dicts=False)
-		#ここでcsv書き出し関数を呼び出す
-			
+	return res
 
 
-def eval(s, t):
-	src = s + "_" + t["name"] + ".c"
-	debug("\neval(" + src + ")\n--------------------")
-	res_compile = compile(src)
-	debug(res_compile, "compile")
-	res_run = None
-	if res_compile["result"]:
-		res_run = run_loop(src, t)
-		debug(pprint.pformat(res_run, sort_dicts=False), "res_run")
-	return res_compile, res_run
+def eval(student, task):
+	r = {"task":task["name"], "src":None, "compile":None, "run":None}
+	exe = f"{student}_{task["name"]}"
+	debug("\n")
+	debug(exe, "eval")
+	debug("----------------------")
+	r["src"] = findLatestSrc(student, task["name"])
+	debug(r["src"], "srcfile")
+	#コンパイル
+	r["compile"] = compile(r["src"], exe)
+	debug(r["compile"], "compile")
+	if r["compile"]["result"]:
+		#実行
+		r["run"] = run_loop(exe, task)
+		debug(pprint.pformat(r["run"], sort_dicts=False), "run_loop")
+	return r
 
 
+def findLatestSrc(student, taskname):
+	#命名条件に合致するファイルが一つもなければNone
+	#命名条件に合致するファイルがあれば，評価対象のファイル名
+	global srclist
+	r = student + "_" + taskname + r"(\([1-9][0-9]*\))?" + ".c"
+	src = [x for x in srclist if re.match(r, x)]
+	#命名条件に合致するファイルが一つもない -> None
+	if len(src) == 0:
+		return None
+	#チェックしたファイルをソースファイルリストから削除する
+	for s in src:
+		srclist.remove(s)
+	#チェックすべきソースファイルを識別
+	if len(src) == 1:
+		#候補が一つしかないときは，それがチェックすべきソースファイル
+		return src[0]
+	else:
+		maxnum = 0
+		#複数候補がある場合，必ずファイル名に丸括弧が含まれている
+		for i in range(len(src)):
+			if "(" in src[i]:
+				num = int(re.search(r"(\([1-9][0-9]*\))", src[i]).group()[1:-1])
+				maxnum = max(num, maxnum)
+		return f"{student}_{taskname}({maxnum}).c"
 
-def compile(src: str):
-	src_abs = os.path.abspath(SRC_PATH) + "/" +src
-	exe_abs = os.path.abspath(WORK_PATH) + "/" + src + ".exe"
+
+def compile(src, exe):
 	res = {"result":True, "reason":None, "stdout":None}
-	if not os.path.isfile(src_abs):
+	if src is None:
+		res["result"] = False
 		res["result"] = False
 		res["reason"] = "No File"
 		return res
+	src_abs = os.path.abspath(SRC_PATH) + "/" +src
+	exe_abs = os.path.abspath(WORK_PATH) + "/" + exe + ".exe"
 	cmd = ["gcc.exe", src_abs, "-o", exe_abs]
 	r = subprocess.run(cmd, cwd=GCC_PATH, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,shell=True)
 	res["stdout"] = byte2str(r.stdout)
@@ -75,16 +114,16 @@ def compile(src: str):
 	return res
 
 
-def run_loop(src, task):
+def run_loop(exe, task):
 	res = []
 	taskfn = task["name"] + "_" + str(task["count"]) + "_"
 	for case in task["case"]:
-		res += [run(src, taskfn, case)]
+		res += [run(exe, taskfn, case)]
 	return res
 
 
-def run(src, taskfn, case):
-	cmd = src + ".exe"
+def run(exe, taskfn, case):
+	cmd = exe + ".exe"
 	if case["arg"] is not None:
 		debug(case["arg"], "arg")
 		cmd = cmd + " " + case["arg"]
@@ -118,6 +157,8 @@ def printScore(s, res_student):
 	output = "Student No.: " + s
 	for r in res_student:
 		output += "\n\tTask: " + r["task"]
+		if r["src"] is not None:
+			output += "\n\t\tSourceFile: " + r["src"]
 		output += "\n\t\tCompile: " + bool2str(r["compile"]["result"], "OK", "NG")
 		if r["compile"]["result"]:
 			correct = 0
@@ -242,7 +283,7 @@ def error(msg, e=True):
 def debug(msg, title = None):
 	if DEBUG:
 		if title is not None:
-			print(strcolor(Color.BG_GREEN, title + ":") + strcolor(Color.GREEN, str(msg)))
+			print(strcolor(Color.BG_GREEN, title + ":") + strcolor(Color.GREEN, " " + str(msg)))
 		else:
 			print(strcolor(Color.GREEN, str(msg)))
 
@@ -277,6 +318,14 @@ def adddelimiter(s: str):
 	elif "\\" not in s and "/" not in s:
 		s += "/"
 	return s
+
+
+def makeSrcFileList():
+	global SRC_PATH, srclist
+	srclist = [
+		f for f in os.listdir(SRC_PATH) if os.path.join(os.path.join(SRC_PATH, f))
+	]
+	return srclist
 
 
 class Color:
