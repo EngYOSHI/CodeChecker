@@ -4,14 +4,16 @@ import sys
 import re
 import pprint
 import difflib
+import argparse
 
-DEBUG = True
+DEBUG = False
 PRINT_SCORE = True
-GCC_PATH = "./mingw64/bin/"
-SRC_PATH = "./src/"
-WORK_PATH = "./work/"
-CASE_PATH = "./case/"
-TIMEOUT = 10
+GCC_PATH = "mingw64/bin/"
+SRC_PATH = "src/"
+WORK_PATH = "work/"
+CASE_PATH = "case/"
+TIMEOUT = 5
+NOCOLOR = False
 
 
 def main():
@@ -53,7 +55,7 @@ def eval(s, t):
 
 
 
-def compile(src: str) -> (bool, str):
+def compile(src: str):
 	src_abs = os.path.abspath(SRC_PATH) + "/" +src
 	exe_abs = os.path.abspath(WORK_PATH) + "/" + src + ".exe"
 	res = {"result":True, "reason":None, "stdout":None}
@@ -224,15 +226,15 @@ def byte2str(byte) -> str:
 
 def bool2str(b, t, f, none = None):
 	if b is None:
-		return "\033[46m" + none + "\033[0m"
+		return strcolor(Color.BG_CYAN, none)
 	elif b:
-		return "\033[44m" + t + "\033[0m"
+		return strcolor(Color.BG_BLUE, t)
 	else:
-		return "\033[41m" + f + "\033[0m"
+		return strcolor(Color.BG_RED, f)
 
 
 def error(msg, e=True):
-	print("\033[31mError: " + str(msg) + "\033[0m")
+	print(strcolor(Color.RED, str(msg)))
 	if e:
 		sys.exit(1)
 
@@ -240,11 +242,63 @@ def error(msg, e=True):
 def debug(msg, title = None):
 	if DEBUG:
 		if title is not None:
-			print("\033[42m" + str(title) + ":\033[0m\033[32m " + str(msg) + "\033[0m")
+			print(strcolor(Color.BG_GREEN, title + ":") + strcolor(Color.GREEN, str(msg)))
 		else:
-			print("\033[32m" + str(msg) + "\033[0m")
+			print(strcolor(Color.GREEN, str(msg)))
+
+
+def chkarg():
+	global DEBUG, SRC_PATH, WORK_PATH, CASE_PATH, TIMEOUT, NOCOLOR
+	parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+	parser.add_argument("--debug", help="enable debug output", action='store_true')
+	parser.add_argument('--src', help="specify source folder", type=str, default=SRC_PATH)
+	parser.add_argument('--work', help="specify work folder", type=str, default=WORK_PATH)
+	parser.add_argument('--case', help="specify case folder", type=str, default=CASE_PATH)
+	parser.add_argument('--timeout', help="specify timeout period for one program execution in seconds.", type=int, default=TIMEOUT)
+	parser.add_argument('--nocolor', help="disable colored output", action='store_true')
+	args = parser.parse_args()
+	DEBUG = args.debug
+	SRC_PATH = adddelimiter(args.src)
+	WORK_PATH = adddelimiter(args.work)
+	CASE_PATH = adddelimiter(args.case)
+	TIMEOUT = args.timeout
+	NOCOLOR = args.nocolor
+	debug(f"Source directory: {SRC_PATH}", "chkarg")
+	debug(f"Work directory: {WORK_PATH}", "chkarg")
+	debug(f"Case directory: {CASE_PATH}", "chkarg")
+	debug(f"Timeout: {TIMEOUT}s", "chkarg")
+
+
+def adddelimiter(s: str):
+	if "/" in s and s[-1] != "/":
+		s += "/"
+	elif "\\" in s and s[-1] != "\\":
+		s += "\\"
+	elif "\\" not in s and "/" not in s:
+		s += "/"
+	return s
+
+
+class Color:
+	RESET = "\033[0m"
+	RED = "\033[31m"
+	GREEN = "\033[32m"
+	YELLOW = "\033[33m"
+	BG_RED = "\033[41m"
+	BG_GREEN = "\033[42m"
+	BG_BLUE = "\033[44m"
+	BG_CYAN = "\033[46m"
+
+
+def strcolor(c, s: str):
+	global NOCOLOR
+	if NOCOLOR:
+		return s
+	else:
+		return c + s + Color.RESET
 
 
 if __name__ == "__main__":
+	chkarg()
 	chkpath()
 	main()
