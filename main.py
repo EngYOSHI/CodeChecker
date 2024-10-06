@@ -60,7 +60,7 @@ def writexl(res):
 	wb.properties.creator = 'CodeChecker'
 	wb.properties.lastModifiedBy = 'CodeChecker'
 	ws = wb["Sheet"]
-	ws.append(["学籍番号", "課題番号", "ソースコード名", "ｺﾝﾊﾟｲﾙ結果", "コンパイル備考", "コンパイルログ", "ﾃｽﾄｹｰｽ", "実行結果", "実行結果備考", "ﾃｽﾄｹｰｽ一致率", "標準出力"])
+	ws.append(["学籍番号", "課題番号", "ソースコード名", "ｺﾝﾊﾟｲﾙ結果", "コンパイル備考", "コンパイルログ", "ﾃｽﾄｹｰｽ", "テスト結果", "テスト結果備考", "ﾃｽﾄｹｰｽ一致率", "標準出力"])
 	for c in list("ABCEFIK"):
 		ws.column_dimensions[c].width = 20
 	ws.column_dimensions["D"].width = 10
