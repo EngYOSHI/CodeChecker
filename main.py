@@ -20,10 +20,10 @@ srclist = []
 
 
 def main():
-	students = file2list(CASE_PATH + "students.txt")
+	students = file2list(os.path.join(CASE_PATH, "students.txt"))
 	print("Number of Students: " + str(len(students)))
 	debug(students)
-	tasks = readTaskFile(CASE_PATH + "tasks.txt")
+	tasks = readTaskFile(os.path.join(CASE_PATH, "tasks.txt"))
 	print("Number of tasks: " + str(len(tasks)))
 	tasks = readCaseFile(tasks)
 	makeSrcFileList()
@@ -96,7 +96,6 @@ def findLatestSrc(student, taskname):
 def compile(src, exe):
 	res = {"result":True, "reason":None, "stdout":None}
 	if src is None:
-		res["result"] = False
 		res["result"] = False
 		res["reason"] = "No File"
 		return res
@@ -190,9 +189,9 @@ def chkpath():
 		error("No source directory found.")
 	if not os.path.isdir(WORK_PATH):
 		error("No work directory found.")
-	if not os.path.isfile(CASE_PATH + "students.txt"):
+	if not os.path.isfile(os.path.join(CASE_PATH, "students.txt")):
 		error("No student list file found.")
-	if not os.path.isfile(CASE_PATH + "tasks.txt"):
+	if not os.path.isfile(os.path.join(CASE_PATH, "tasks.txt")):
 		error("No task list file found.")
 
 
@@ -231,9 +230,9 @@ def readCaseFile(l):
 		count = l[i]["count"]
 		for j in range(count):
 			d = {"arg":None, "out":None, "in":None}
-			file_arg = CASE_PATH + l[i]["name"] + "_" + str(j) + "_arg.txt"
-			file_out = CASE_PATH + l[i]["name"] + "_" + str(j) + "_out.txt"
-			file_in = CASE_PATH + l[i]["name"] + "_" + str(j) + "_in.txt"
+			file_arg = os.path.join(CASE_PATH, l[i]["name"] + "_" + str(j) + "_arg.txt")
+			file_out = os.path.join(CASE_PATH, l[i]["name"] + "_" + str(j) + "_out.txt")
+			file_in = os.path.join(CASE_PATH, l[i]["name"] + "_" + str(j) + "_in.txt")
 			if os.path.isfile(file_arg):
 				d["arg"] = file2list(file_arg)[0]
 			if os.path.isfile(file_out):
