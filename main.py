@@ -35,9 +35,16 @@ def main():
 	debug(pprint.pformat(tasks, sort_dicts=False))
 	res = eval_loop(students, tasks)
 	#pprint.pprint(res, sort_dicts=False)
-	print("Number of Unevaluated files: " + str(len(srclist)))
+	print("Number of untouched files: " + str(len(srclist)))
 	print("Writing the results as xlsx...")
 	writexl(res)
+	writeuntouched()
+
+
+def writeuntouched():
+	with open(os.path.join(RESULT_PATH, "untouched.txt"), 'w') as f:
+		for x in srclist:
+			f.write(x + "\n")
 
 
 def writexl(res):
