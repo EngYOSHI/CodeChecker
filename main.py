@@ -114,14 +114,15 @@ def cellfill(cell, conditions):
 
 def eval_loop(students, tasks):
 	res = []
-	for s in students:
+	for i, s in enumerate(students):
 		res_student = []
 		for t in tasks:
 			r = eval(s, t)
 			res_student += [r]
 		res += [{"student":s, "result":res_student}]
 		if PRINT_SCORE:
-			printScore(s, res_student)
+			progress = f"({i + 1}/{len(students)})"
+			printScore(s, res_student, progress)
 	return res
 
 
@@ -228,8 +229,8 @@ def run(exe, taskfn, case):
 	return res
 
 
-def printScore(s, res_student):
-	output = "Student No.: " + s
+def printScore(s, res_student, progress):
+	output = "Student No.: " + s + "   " + progress
 	for r in res_student:
 		output += "\n\tTask: " + r["task"]
 		if r["src"] is not None:
