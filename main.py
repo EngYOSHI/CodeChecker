@@ -184,7 +184,7 @@ def compile(src, exe):
 		res["reason"] = "No File"
 		return res
 	src_abs = os.path.join(os.path.abspath(SRC_PATH), src)
-	exe_abs = os.path.join(os.path.abspath(WORK_PATH), exe + "exe")
+	exe_abs = os.path.join(os.path.abspath(WORK_PATH), exe)
 	cmd = ["gcc.exe", src_abs, "-o", exe_abs]
 	r = subprocess.run(cmd, cwd=GCC_PATH, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,shell=True)
 	res["stdout"] = byte2str(r.stdout)
