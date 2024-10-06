@@ -2,9 +2,11 @@ import subprocess
 import os
 import sys
 import re
+import time
 import pprint
 import difflib
 import argparse
+import openpyxl
 
 DEBUG = False
 PRINT_SCORE = True
@@ -12,6 +14,7 @@ GCC_PATH = "mingw64\\bin\\"
 SRC_PATH = "src\\"
 WORK_PATH = "work\\"
 CASE_PATH = "case\\"
+RESULT_PATH = "result\\"
 TIMEOUT = 5
 NOCOLOR = False
 
@@ -33,7 +36,80 @@ def main():
 	res = eval_loop(students, tasks)
 	#pprint.pprint(res, sort_dicts=False)
 	print("Number of Unevaluated files: " + str(len(srclist)))
-	#ここでcsv書き出し関数を呼び出す
+	print("Writing the results as xlsx...")
+	writexl(res)
+
+
+def writexl(res):
+	#[{student:str,
+	#  result:[{task:str,
+	#           src:str|None,
+	#           compile:{result:bool, reason:None|str, stdout:str|None},
+	#           run:[{result:bool|None, reason:None|str, output:str|None, ratio:float|None} | None]
+	#         }]
+	#}]
+	global RESULT_PATH
+	wb = openpyxl.Workbook()
+	wb.properties.creator = 'CodeChecker'
+	wb.properties.lastModifiedBy = 'CodeChecker'
+	ws = wb["Sheet"]
+	ws.append(["学籍番号", "課題番号", "ソースコード名", "ｺﾝﾊﾟｲﾙ結果", "コンパイル備考", "コンパイルログ", "ﾃｽﾄｹｰｽ", "実行結果", "実行結果備考", "ﾃｽﾄｹｰｽ一致率", "標準出力"])
+	for c in list("ABCEFIK"):
+		ws.column_dimensions[c].width = 20
+	ws.column_dimensions["D"].width = 10
+	ws.column_dimensions["G"].width = 7
+	ws.column_dimensions["H"].width = 11
+	ws.column_dimensions["J"].width = 13
+	ws.freeze_panes = "A2" #先頭行を固定
+	row = 2
+	for res_student in res:
+		ws.cell(row=row, column=1).value = res_student["student"]
+		for task in res_student["result"]:
+			ws.cell(row=row, column=2).value = task["task"]
+			if task["src"] is not None:
+				ws.cell(row=row, column=3).value = task["src"]
+			ws.cell(row=row, column=4).value = valconv(task["compile"]["result"], bool, t = "OK", f = "NG")
+			cellfill(ws.cell(row=row, column=4), [("OK", "00b050"),("NG", "e09694")])
+			ws.cell(row=row, column=5).value = valconv(task["compile"]["reason"], str, none="")
+			ws.cell(row=row, column=6).value = valconv(task["compile"]["stdout"], str, none="")
+			if task["run"] is None:
+				ws.cell(row=row, column=7).value = "　" #コンパイルログが右のセルにはみ出さないように
+				row += 1
+				continue
+			for i, run in enumerate(task["run"]):
+				ws.cell(row=row, column=7).value = task["task"] + "_" + str(i + 1)
+				ws.cell(row=row, column=8).value = valconv(run["result"], bool, t="OK", f="NG", none="SKIP")
+				cellfill(ws.cell(row=row, column=8), [("OK", "00b050"),("NG", "e09694"),("SKIP", "c5d9f1")])
+				ws.cell(row=row, column=9).value = valconv(run["reason"], str, none="")
+				ws.cell(row=row, column=10).value = valconv(run["ratio"], float, none="")
+				ws.cell(row=row, column=11).value = valconv(run["output"], str, none="")
+				row += 1
+	path = os.path.join(RESULT_PATH, "result.xlsx")
+	while True:
+		try:
+			wb.save(path)
+		except PermissionError:
+			print(strcolor(Color.RED, f'File "{path}" is open! Please close the file.'))
+			print("Retry in 5 seconds...")
+			time.sleep(5)
+			continue
+		break
+
+
+def valconv(data, type, t = "True", f = "False", none = "None"):
+	if data is None: return none
+	elif type == bool:
+		if data: return t
+		else: return f
+	else: return data
+
+
+def cellfill(cell, conditions):
+	#conditionsは(文字列, 色)のリスト
+	for s, color in conditions:
+		if cell.value == s:
+			cell.fill = openpyxl.styles.PatternFill(patternType='solid', fgColor=color)
+			return
 
 
 def eval_loop(students, tasks):
@@ -143,7 +219,7 @@ def run(exe, taskfn, case):
 			res["result"] = False
 			res["reason"] = "Stdout encoding error"
 			return res
-		res["ratio"] = difflib.SequenceMatcher(None, res["output"], case["out"], False).ratio()
+		res["ratio"] = round(difflib.SequenceMatcher(None, res["output"], case["out"], False).ratio(), 3)
 		if res["output"] == case["out"]:
 			res["result"] = True
 		else:
@@ -174,7 +250,7 @@ def printScore(s, res_student):
 					if r["run"][i]["reason"] is not None:
 						output += f" (Reason: {r['run'][i]['reason']})"
 					if r["run"][i]["ratio"] is not None:
-						output += f" (Ratio: {round(r['run'][i]['ratio'], 2)})"
+						output += f" (Ratio: {r['run'][i]['ratio']})"
 			output += f"\n\t\tSummary: {correct}/{correct + failed}  (skip:{skip})"
 		else:
 			output += " (" + r["compile"]["reason"] + ")"
@@ -193,6 +269,8 @@ def chkpath():
 		error("No student list file found.")
 	if not os.path.isfile(os.path.join(CASE_PATH, "tasks.txt")):
 		error("No task list file found.")
+	if not os.path.isdir(RESULT_PATH):
+		error("No result directory found.")
 
 
 def file2list(filename):
@@ -288,12 +366,13 @@ def debug(msg, title = None):
 
 
 def chkarg():
-	global DEBUG, SRC_PATH, WORK_PATH, CASE_PATH, TIMEOUT, NOCOLOR
+	global DEBUG, SRC_PATH, WORK_PATH, CASE_PATH, RESULT_PATH, TIMEOUT, NOCOLOR
 	parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 	parser.add_argument("--debug", help="enable debug output", action='store_true')
 	parser.add_argument('--src', help="specify source folder", type=str, default=SRC_PATH)
 	parser.add_argument('--work', help="specify work folder", type=str, default=WORK_PATH)
 	parser.add_argument('--case', help="specify case folder", type=str, default=CASE_PATH)
+	parser.add_argument('--result', help="specify result folder", type=str, default=RESULT_PATH)
 	parser.add_argument('--timeout', help="specify timeout period for one program execution in seconds.", type=int, default=TIMEOUT)
 	parser.add_argument('--nocolor', help="disable colored output", action='store_true')
 	args = parser.parse_args()
@@ -301,11 +380,13 @@ def chkarg():
 	SRC_PATH = args.src
 	WORK_PATH = args.work
 	CASE_PATH = args.case
+	RESULT_PATH = args.result
 	TIMEOUT = args.timeout
 	NOCOLOR = args.nocolor
 	debug(f"Source directory: {SRC_PATH}", "chkarg")
 	debug(f"Work directory: {WORK_PATH}", "chkarg")
 	debug(f"Case directory: {CASE_PATH}", "chkarg")
+	debug(f"Result directory: {RESULT_PATH}", "chkarg")
 	debug(f"Timeout: {TIMEOUT}s", "chkarg")
 
 
