@@ -8,10 +8,10 @@ import argparse
 
 DEBUG = False
 PRINT_SCORE = True
-GCC_PATH = "mingw64/bin/"
-SRC_PATH = "src/"
-WORK_PATH = "work/"
-CASE_PATH = "case/"
+GCC_PATH = "mingw64\\bin\\"
+SRC_PATH = "src\\"
+WORK_PATH = "work\\"
+CASE_PATH = "case\\"
 TIMEOUT = 5
 NOCOLOR = False
 
@@ -100,8 +100,8 @@ def compile(src, exe):
 		res["result"] = False
 		res["reason"] = "No File"
 		return res
-	src_abs = os.path.abspath(SRC_PATH) + "/" +src
-	exe_abs = os.path.abspath(WORK_PATH) + "/" + exe + ".exe"
+	src_abs = os.path.join(os.path.abspath(SRC_PATH), src)
+	exe_abs = os.path.join(os.path.abspath(WORK_PATH), exe + "exe")
 	cmd = ["gcc.exe", src_abs, "-o", exe_abs]
 	r = subprocess.run(cmd, cwd=GCC_PATH, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,shell=True)
 	res["stdout"] = byte2str(r.stdout)
@@ -299,25 +299,15 @@ def chkarg():
 	parser.add_argument('--nocolor', help="disable colored output", action='store_true')
 	args = parser.parse_args()
 	DEBUG = args.debug
-	SRC_PATH = adddelimiter(args.src)
-	WORK_PATH = adddelimiter(args.work)
-	CASE_PATH = adddelimiter(args.case)
+	SRC_PATH = args.src
+	WORK_PATH = args.work
+	CASE_PATH = args.case
 	TIMEOUT = args.timeout
 	NOCOLOR = args.nocolor
 	debug(f"Source directory: {SRC_PATH}", "chkarg")
 	debug(f"Work directory: {WORK_PATH}", "chkarg")
 	debug(f"Case directory: {CASE_PATH}", "chkarg")
 	debug(f"Timeout: {TIMEOUT}s", "chkarg")
-
-
-def adddelimiter(s: str):
-	if "/" in s and s[-1] != "/":
-		s += "/"
-	elif "\\" in s and s[-1] != "\\":
-		s += "\\"
-	elif "\\" not in s and "/" not in s:
-		s += "/"
-	return s
 
 
 def makeSrcFileList():
