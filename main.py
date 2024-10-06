@@ -211,9 +211,12 @@ def run(exe, taskfn, case):
 		debug(case["arg"], "arg")
 		cmd = cmd + " " + case["arg"]
 	res = {"result":None, "reason":None, "output":None, "ratio":None}
-	proc = subprocess.Popen(cmd, cwd=WORK_PATH, stdout=subprocess.PIPE, shell=True)
+	proc = subprocess.Popen(cmd, cwd=WORK_PATH, stdout=subprocess.PIPE, stdin=subprocess.PIPE, shell=True)
 	try:
-		r = proc.communicate(timeout=TIMEOUT)
+		if case["in"] is None:
+			r = proc.communicate(timeout=TIMEOUT)
+		else:
+			r = proc.communicate(timeout=TIMEOUT, input=case["in"].encode("cp932"))
 	except subprocess.TimeoutExpired:
 		#タイムアウト
 		proc.kill()
