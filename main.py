@@ -169,7 +169,7 @@ def compile(src, exe):
 	res = {"result":True, "reason":None, "stdout":None}
 	if src is None:
 		res["result"] = False
-		res["reason"] = "No File"
+		res["reason"] = "未提出orﾌｧｲﾙ名間違い"
 		return res
 	src_abs = os.path.join(os.path.abspath(SRC_PATH), src)
 	exe_abs = os.path.join(os.path.abspath(WORK_PATH), exe)
@@ -179,9 +179,9 @@ def compile(src, exe):
 	if r.returncode != 0:
 		#コンパイル失敗
 		res["result"] = False
-		res["reason"] = "Compile Error"
+		res["reason"] = "コンパイルエラー"
 		if res["stdout"] is None:
-			res["reason"] += " + Not supported encoding"
+			res["reason"] += " + 未サポートｴﾝｺｰﾄﾞ"
 	return res
 
 
@@ -210,19 +210,19 @@ def run(exe, taskfn, case):
 		proc.kill()
 		debug("Time Out.", "run")
 		res["result"] = False
-		res["reason"] = "Timeout"
+		res["reason"] = "タイムアウト"
 		return res
 	res["output"] = byte2str(r[0])  #標準出力のバイトストリームを文字列に変換
 	if case["out"] is not None:
 		if res["output"] is None:
 			res["result"] = False
-			res["reason"] = "Stdout encoding error"
+			res["reason"] = "未サポートｴﾝｺｰﾄﾞ"
 			return res
 		res["ratio"] = round(difflib.SequenceMatcher(None, res["output"], case["out"], False).ratio(), 3)
 		if res["output"] == case["out"]:
 			res["result"] = True
 		else:
-			res["reason"] = "Not matched"
+			res["reason"] = "ﾃｽﾄｹｰｽと不一致"
 			res["result"] = False
 	return res
 
