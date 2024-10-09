@@ -14,7 +14,7 @@
 
 # 動作環境
 ```
-Windows 11
+Windows 10 / 11
 python 3.12.3
 openpyxl==3.1.5
 ```
@@ -34,9 +34,11 @@ py -3.12 -m pip install openpyxl==3.1.5
 https://github.com/EngYOSHI/CodeChecker/archive/refs/heads/master.zip
 
 4. Cコンパイラ(mingw-w64)のバイナリをダウンロードする  
+`x86_64-xx.x.x-release-win32-seh-ucrt-rt...`をダウンロードする  
 https://github.com/niXman/mingw-builds-binaries/releases/latest
 
-5. ダウンロードした圧縮ファイルを，`CodeChecker\mingw64\`に展開する  
+5. ダウンロードしたCコンパイラの圧縮ファイルを，`CodeChecker\mingw64\`に展開する  
+なお7zで圧縮されているので，展開のために7-zipなどのアーカイバが必要  
 このとき，`CodeChecker\mingw64\`フォルダ配下に`bin`, `include`フォルダなどが配置されている状態にすること
 
 6. `CodeChecker\src\`，`CodeChecker\work\`，`CodeChecker\case\`，`CodeChecker\result\`フォルダを作成する  
