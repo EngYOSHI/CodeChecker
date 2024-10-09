@@ -46,7 +46,7 @@ https://github.com/niXman/mingw-builds-binaries/releases/latest
 1. `CodeChecker\src\`フォルダ内に，1授業回分の提出されたソースコードを入れる  
 2. 実行ファイルに読み込ませるファイルがある場合は，`CodeChecker\work\`フォルダに入れる  
 それ以外のファイルは全て削除されていることが望ましい
-3. `CodeChecker\case\`フォルダに，`student.txt`，`tasks.txt`，テストケースをすべて入れる  
+3. `CodeChecker\case\`フォルダに，`students.txt`，`tasks.txt`，テストケースをすべて入れる  
 テストケースの作り方や注意事項は[該当セクション](#テストケースの作成方法)を参照のこと  
 4. コマンドプロンプトで以下のコマンドを実行し，スクリプトを実行する  
 （勿論，`CodeChecker`フォルダにcdしていること）  
@@ -59,7 +59,7 @@ py -3.12 main.py
 # テストケースの作成方法
 以下のファイルは全て**UTF-8 BOM無**で作成し，`CodeChecker\case\`フォルダに入れる  
 テスト結果にNGが多すぎる場合，**テストケースのミスを疑おう**．  
-## 学籍番号一覧 (student.txt)
+## 学籍番号一覧 (students.txt)
 採点対象の学籍番号を1行に一名分入れる  
 
 ## 課題番号一覧 (tasks.txt)
