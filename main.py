@@ -415,6 +415,7 @@ def strcolor(c, s: str):
 
 
 if __name__ == "__main__":
+	os.system("")
 	chkarg()
 	chkpath()
 	main()
