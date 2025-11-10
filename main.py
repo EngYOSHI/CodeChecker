@@ -7,6 +7,7 @@ import pprint
 import difflib
 import argparse
 import openpyxl
+import shutil
 
 DEBUG = False
 PRINT_SCORE = True
@@ -15,6 +16,8 @@ SRC_PATH = "src\\"
 WORK_PATH = "work\\"
 CASE_PATH = "case\\"
 RESULT_PATH = "result\\"
+BIN_PATH = "bin\\"
+TEMP_PATH = "temp\\"
 TIMEOUT = 5
 NOCOLOR = False
 
@@ -34,6 +37,7 @@ def main():
 	print("Number of files in source directory: " + str(len(srclist)))
 	debug(pprint.pformat(tasks, sort_dicts=False))
 	res = eval_loop(students, tasks)
+	temp_del()  # tempフォルダを削除
 	#pprint.pprint(res, sort_dicts=False)
 	print("Number of untouched files: " + str(len(srclist)))
 	print("Writing the results as xlsx...")
@@ -138,13 +142,15 @@ def eval(student, task):
 	debug("----------------------")
 	src = findLatestSrc(student, task["name"])
 	debug(src, "srcfile")
-	#コンパイル
+	# コンパイル
+	temp_reset()  # Tempフォルダの初期化
 	r["compile"] = compile(src, exe)
 	debug(r["compile"], "compile")
 	if r["compile"]["result"]:
-		#実行
+		# コンパイル成功ならテスト実行
 		r["run"] = run_loop(exe, task)
 		debug(pprint.pformat(r["run"], sort_dicts=False), "run_loop")
+		mv_temp2bin(exe + ".exe")  # 実行が終わったバイナリはbinフォルダへ移動
 	return r
 
 
@@ -172,7 +178,7 @@ def compile(src, exe):
 		res["reason"] = "未提出orﾌｧｲﾙ名間違い"
 		return res
 	src_abs = os.path.join(os.path.abspath(SRC_PATH), src)
-	exe_abs = os.path.join(os.path.abspath(WORK_PATH), exe)
+	exe_abs = os.path.join(os.path.abspath(TEMP_PATH), exe)
 	cmd = ["gcc.exe", src_abs, "-o", exe_abs]
 	r = subprocess.run(cmd, cwd=GCC_PATH, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,shell=True)
 	res["stdout"] = byte2str(r.stdout)
@@ -189,17 +195,17 @@ def run_loop(exe, task):
 	res = []
 	taskfn = task["name"] + "_" + str(task["count"]) + "_"
 	for case in task["case"]:
-		res += [run(exe, taskfn, case)]
+		res += [run_exe(exe, taskfn, case)]
 	return res
 
 
-def run(exe, taskfn, case):
+def run_exe(exe, taskfn, case):
 	cmd = exe + ".exe"
 	if case["arg"] is not None:
 		debug(case["arg"], "arg")
 		cmd = cmd + " " + case["arg"]
 	res = {"result":None, "reason":None, "output":None, "ratio":None}
-	proc = subprocess.Popen(cmd, cwd=WORK_PATH, stdout=subprocess.PIPE, stdin=subprocess.PIPE, shell=True)
+	proc = subprocess.Popen(cmd, cwd=TEMP_PATH, stdout=subprocess.PIPE, stdin=subprocess.PIPE, shell=True)
 	try:
 		if case["in"] is None:
 			r = proc.communicate(timeout=TIMEOUT)
@@ -255,6 +261,34 @@ def printScore(s, res_student, progress):
 	
 
 
+def mv_temp2bin(exe):
+	"""exeをtempからbinに実行ファイル移動
+	
+	既に存在する場合は上書き
+	"""
+	mv_from = os.path.join(TEMP_PATH, exe)
+	mv_to = os.path.join(BIN_PATH, exe)
+	debug(f"{mv_from} -> {mv_to}", "mv_temp2bin")
+	shutil.move(mv_from, mv_to)
+
+
+def temp_del():
+	"""一時保存フォルダ(temp)がある場合削除する"""
+	if os.path.isdir(TEMP_PATH):
+		shutil.rmtree(TEMP_PATH)
+
+
+def temp_reset():
+	"""一時保存フォルダ(temp)を初期化する
+	
+	一時保存フォルダが存在する場合はフォルダごと消す
+	その後，workフォルダをtempフォルダとしてコピー
+	"""
+	temp_del()
+	debug(f"Copying working files: {WORK_PATH} -> {TEMP_PATH}", "temp_reset")
+	shutil.copytree(WORK_PATH, TEMP_PATH)
+
+
 def chkpath():
 	if not os.path.isdir(GCC_PATH):
 		error("No gcc directory found.")
@@ -268,6 +302,8 @@ def chkpath():
 		error("No task list file found.")
 	if not os.path.isdir(RESULT_PATH):
 		error("No result directory found.")
+	if not os.path.isdir(BIN_PATH):
+		error("No bin directory found.")
 
 
 def file2list(filename):
@@ -363,13 +399,15 @@ def debug(msg, title = None):
 
 
 def chkarg():
-	global DEBUG, SRC_PATH, WORK_PATH, CASE_PATH, RESULT_PATH, TIMEOUT, NOCOLOR
+	global DEBUG, SRC_PATH, WORK_PATH, CASE_PATH, RESULT_PATH, BIN_PATH, TEMP_PATH, TIMEOUT, NOCOLOR
 	parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 	parser.add_argument("--debug", help="enable debug output", action='store_true')
 	parser.add_argument('--src', help="specify source folder", type=str, default=SRC_PATH)
 	parser.add_argument('--work', help="specify work folder", type=str, default=WORK_PATH)
 	parser.add_argument('--case', help="specify case folder", type=str, default=CASE_PATH)
 	parser.add_argument('--result', help="specify result folder", type=str, default=RESULT_PATH)
+	parser.add_argument('--bin', help="specify bin folder", type=str, default=BIN_PATH)
+	parser.add_argument('--temp', help="specify temp folder", type=str, default=TEMP_PATH)
 	parser.add_argument('--timeout', help="specify timeout period for one program execution in seconds.", type=int, default=TIMEOUT)
 	parser.add_argument('--nocolor', help="disable colored output", action='store_true')
 	args = parser.parse_args()
@@ -378,12 +416,16 @@ def chkarg():
 	WORK_PATH = args.work
 	CASE_PATH = args.case
 	RESULT_PATH = args.result
+	BIN_PATH = args.bin
+	TEMP_PATH = args.temp
 	TIMEOUT = args.timeout
 	NOCOLOR = args.nocolor
 	debug(f"Source directory: {SRC_PATH}", "chkarg")
 	debug(f"Work directory: {WORK_PATH}", "chkarg")
 	debug(f"Case directory: {CASE_PATH}", "chkarg")
 	debug(f"Result directory: {RESULT_PATH}", "chkarg")
+	debug(f"Bin  directory: {BIN_PATH}", "chkarg")
+	debug(f"Temp directory: {TEMP_PATH}", "chkarg")
 	debug(f"Timeout: {TIMEOUT}s", "chkarg")
 
 
