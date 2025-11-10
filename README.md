@@ -41,7 +41,7 @@ https://github.com/niXman/mingw-builds-binaries/releases/latest
 なお7zで圧縮されているので，展開のために7-zipなどのアーカイバが必要  
 このとき，`CodeChecker\mingw64\`フォルダ配下に`bin`, `include`フォルダなどが配置されている状態にすること
 
-6. `CodeChecker\src\`，`CodeChecker\work\`，`CodeChecker\case\`，`CodeChecker\result\`フォルダを作成する  
+6. `CodeChecker\src\`，`CodeChecker\work\`，`CodeChecker\case\`，`CodeChecker\result\`，`CodeChecker\bin\`フォルダを作成する  
 
 
 # 使い方
@@ -50,11 +50,7 @@ https://github.com/niXman/mingw-builds-binaries/releases/latest
 それ以外のファイルは全て削除されていることが望ましい
 3. `CodeChecker\case\`フォルダに，`students.txt`，`tasks.txt`，テストケースをすべて入れる  
 テストケースの作り方や注意事項は[該当セクション](#テストケースの作成方法)を参照のこと  
-4. コマンドプロンプトで以下のコマンドを実行し，スクリプトを実行する  
-（勿論，`CodeChecker`フォルダにcdしていること）  
-```
-py -3.12 main.py
-```
+4. `run.cmd`ファイルをダブルクリックで開き，スクリプトを実行する  
 5. `CodeChecker\result\`フォルダに結果がファイルで出力される
 
 
