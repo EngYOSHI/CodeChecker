@@ -16,7 +16,6 @@ SRC_PATH = "src\\"
 WORK_PATH = "work\\"
 CASE_PATH = "case\\"
 RESULT_PATH = "result\\"
-BIN_PATH = "bin\\"
 TEMP_PATH = "temp\\"
 TIMEOUT = 5
 NOCOLOR = False
@@ -27,20 +26,20 @@ srclist = []
 
 def main():
 	students = file2list(os.path.join(CASE_PATH, "students.txt"))
-	print("Number of Students: " + str(len(students)))
+	print("学生数: " + str(len(students)))
 	debug(students)
 	tasks = readTaskFile(os.path.join(CASE_PATH, "tasks.txt"))
-	print("Number of tasks: " + str(len(tasks)))
+	print("課題数: " + str(len(tasks)))
 	tasks = readCaseFile(tasks)
-	makeSrcFileList()
-	debug(srclist)
-	print("Number of files in source directory: " + str(len(srclist)))
 	debug(pprint.pformat(tasks, sort_dicts=False))
+	makeSrcFileList()
+	print("ソースファイル数: " + str(len(srclist)))
+	debug(srclist)
 	res = eval_loop(students, tasks)
 	temp_del()  # tempフォルダを削除
 	#pprint.pprint(res, sort_dicts=False)
-	print("Number of untouched files: " + str(len(srclist)))
-	print("Writing the results as xlsx...")
+	print("未処理のファイル数: " + str(len(srclist)))
+	print("結果をxlsxファイルに書き込み中...")
 	writexl(res)
 	writeuntouched()
 
@@ -148,8 +147,9 @@ def eval(student, task):
 	debug(r["compile"], "compile")
 	if r["compile"]["result"]:
 		# コンパイル成功ならテスト実行
-		r["run"] = run_loop(exe, task)
-		debug(pprint.pformat(r["run"], sort_dicts=False), "run_loop")
+		r["run"] = run_loop(exe + ".exe", task)
+		debug("", "run_loop")
+		debug(pprint.pformat(r["run"], sort_dicts=False))
 		mv_temp2bin(exe + ".exe")  # 実行が終わったバイナリはbinフォルダへ移動
 	return r
 
@@ -200,7 +200,7 @@ def run_loop(exe, task):
 
 
 def run_exe(exe, taskfn, case):
-	cmd = exe + ".exe"
+	cmd = exe
 	if case["arg"] is not None:
 		debug(case["arg"], "arg")
 		cmd = cmd + " " + case["arg"]
@@ -262,12 +262,15 @@ def printScore(s, res_student, progress):
 
 
 def mv_temp2bin(exe):
-	"""exeをtempからbinに実行ファイル移動
+	"""exeをtempからresult\binに移動
 	
 	既に存在する場合は上書き
 	"""
+	bin_path = os.path.join(RESULT_PATH, "bin\\")
+	if not os.path.isdir(bin_path):
+		os.mkdir(bin_path)
 	mv_from = os.path.join(TEMP_PATH, exe)
-	mv_to = os.path.join(BIN_PATH, exe)
+	mv_to = os.path.join(bin_path, exe)
 	debug(f"{mv_from} -> {mv_to}", "mv_temp2bin")
 	shutil.move(mv_from, mv_to)
 
@@ -291,19 +294,17 @@ def temp_reset():
 
 def chkpath():
 	if not os.path.isdir(GCC_PATH):
-		error("No gcc directory found.")
+		error(f"コンパイラがないか，正しく配置されていません．({GCC_PATH})")
 	if not os.path.isdir(SRC_PATH):
-		error("No source directory found.")
+		error(f"ソースファイルの格納先({SRC_PATH})がありません．")
 	if not os.path.isdir(WORK_PATH):
-		error("No work directory found.")
+		error(f"読み込ませるファイルの格納先({WORK_PATH})がありません．")
 	if not os.path.isfile(os.path.join(CASE_PATH, "students.txt")):
-		error("No student list file found.")
+		error(f"学籍番号ファイル'students.txt'が{CASE_PATH}にありません．")
 	if not os.path.isfile(os.path.join(CASE_PATH, "tasks.txt")):
-		error("No task list file found.")
+		error(f"タスクファイル'tasks.txt'が{CASE_PATH}にありません．")
 	if not os.path.isdir(RESULT_PATH):
-		error("No result directory found.")
-	if not os.path.isdir(BIN_PATH):
-		error("No bin directory found.")
+		error(f"結果ファイルの格納先({RESULT_PATH})がありません．")
 
 
 def file2list(filename):
@@ -332,7 +333,7 @@ def readTaskFile(filename):
 			temp = l[i].split(" ")
 			l[i] = {"name" : temp[0], "count" : int(temp[1]), "case" : []}
 		else:
-			error("Syntax error in 'tasks.txt'")
+			error("'tasks.txt'の構文エラー")
 	return l
 
 
@@ -371,7 +372,7 @@ def byte2str(byte) -> str:
 		return s
 	except:
 		pass
-	debug("Not supported encoding", "byte2str")
+	debug("サポートされていないエンコード", "byte2str")
 	return None
 
 
@@ -399,34 +400,31 @@ def debug(msg, title = None):
 
 
 def chkarg():
-	global DEBUG, SRC_PATH, WORK_PATH, CASE_PATH, RESULT_PATH, BIN_PATH, TEMP_PATH, TIMEOUT, NOCOLOR
+	global DEBUG, SRC_PATH, WORK_PATH, CASE_PATH, RESULT_PATH, TEMP_PATH, TIMEOUT, NOCOLOR
 	parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-	parser.add_argument("--debug", help="enable debug output", action='store_true')
-	parser.add_argument('--src', help="specify source folder", type=str, default=SRC_PATH)
-	parser.add_argument('--work', help="specify work folder", type=str, default=WORK_PATH)
-	parser.add_argument('--case', help="specify case folder", type=str, default=CASE_PATH)
-	parser.add_argument('--result', help="specify result folder", type=str, default=RESULT_PATH)
-	parser.add_argument('--bin', help="specify bin folder", type=str, default=BIN_PATH)
-	parser.add_argument('--temp', help="specify temp folder", type=str, default=TEMP_PATH)
-	parser.add_argument('--timeout', help="specify timeout period for one program execution in seconds.", type=int, default=TIMEOUT)
-	parser.add_argument('--nocolor', help="disable colored output", action='store_true')
+	parser.add_argument("--debug", help="デバッグ出力を有効にする", action='store_true')
+	parser.add_argument('--src', help="ソースファイルの格納先を指定", type=str, default=SRC_PATH)
+	parser.add_argument('--work', help="読み込みファイルの格納先を指定", type=str, default=WORK_PATH)
+	parser.add_argument('--case', help="テストケースの格納先を指定", type=str, default=CASE_PATH)
+	parser.add_argument('--result', help="結果の格納先を指定", type=str, default=RESULT_PATH)
+	parser.add_argument('--temp', help="一時ファイル格納先を指定", type=str, default=TEMP_PATH)
+	parser.add_argument('--timeout', help="1プログラム当たりのタイムアウト時間を秒で指定", type=int, default=TIMEOUT)
+	parser.add_argument('--nocolor', help="色付き出力を無効化", action='store_true')
 	args = parser.parse_args()
 	DEBUG = args.debug
 	SRC_PATH = args.src
 	WORK_PATH = args.work
 	CASE_PATH = args.case
 	RESULT_PATH = args.result
-	BIN_PATH = args.bin
 	TEMP_PATH = args.temp
 	TIMEOUT = args.timeout
 	NOCOLOR = args.nocolor
-	debug(f"Source directory: {SRC_PATH}", "chkarg")
-	debug(f"Work directory: {WORK_PATH}", "chkarg")
-	debug(f"Case directory: {CASE_PATH}", "chkarg")
-	debug(f"Result directory: {RESULT_PATH}", "chkarg")
-	debug(f"Bin  directory: {BIN_PATH}", "chkarg")
-	debug(f"Temp directory: {TEMP_PATH}", "chkarg")
-	debug(f"Timeout: {TIMEOUT}s", "chkarg")
+	debug(f"Source: {SRC_PATH}", "chkarg")
+	debug(f"Work: {WORK_PATH}", "chkarg")
+	debug(f"Case: {CASE_PATH}", "chkarg")
+	debug(f"Result: {RESULT_PATH}", "chkarg")
+	debug(f"Temp: {TEMP_PATH}", "chkarg")
+	debug(f"タイムアウト: {TIMEOUT}s", "chkarg")
 
 
 def makeSrcFileList():

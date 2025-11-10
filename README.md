@@ -41,7 +41,7 @@ https://github.com/niXman/mingw-builds-binaries/releases/latest
 なお7zで圧縮されているので，展開のために7-zipなどのアーカイバが必要  
 このとき，`CodeChecker\mingw64\`フォルダ配下に`bin`, `include`フォルダなどが配置されている状態にすること
 
-6. `CodeChecker\src\`，`CodeChecker\work\`，`CodeChecker\case\`，`CodeChecker\result\`，`CodeChecker\bin\`フォルダを作成する  
+6. `CodeChecker\src\`，`CodeChecker\work\`，`CodeChecker\case\`，`CodeChecker\result\`フォルダを作成する  
 
 
 # 使い方
