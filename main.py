@@ -1,7 +1,6 @@
 import subprocess
 import os
 import re
-import pprint
 import difflib
 import argparse
 import shutil
@@ -9,26 +8,26 @@ import shutil
 import common as c
 import xl
 
+
 srclist: list[str] = []
 
 
 def main():
-    students = c.file2list(os.path.join(c.CASE_PATH, "students.txt"))
-    print("学生数: " + str(len(students)))
-    c.debug(str(students))
-    tasks = read_taskfiles(os.path.join(c.CASE_PATH, "tasks.txt"))
+    student_numbers = c.file2list(os.path.join(c.CASE_PATH, "students.txt"))
+    print("学生数: " + str(len(student_numbers)))
+    c.debug(str(student_numbers))
+    tasks:list[c.Task] = get_tasklist(os.path.join(c.CASE_PATH, "tasks.txt"))
     print("課題数: " + str(len(tasks)))
-    tasks = read_casefiles(tasks)
-    c.debug(pprint.pformat(tasks, sort_dicts=False))
+    for task in tasks:
+        c.debug(task.content())
     src_listgen()
     print("ソースファイル数: " + str(len(srclist)))
     c.debug(str(srclist))
-    res = eval_loop(students, tasks)
+    students:list[c.Student] = eval_loop(student_numbers, tasks)
     del_temp()  # tempフォルダを削除
-    #pprint.pprint(res, sort_dicts=False)
     print("未処理のファイル数: " + str(len(srclist)))
     print("結果をxlsxファイルに書き込み中...")
-    xl.write_xl(res)
+    xl.write_xl(students)
     write_untouched()
 
 
@@ -38,148 +37,174 @@ def write_untouched():
             f.write(x + "\n")
 
 
-def eval_loop(students, tasks):
-    res = []
-    for i, s in enumerate(students):
-        res_student = []
-        for t in tasks:
-            r = eval(s, t)
-            res_student += [r]
-        res += [{"student":s, "result":res_student}]
+def eval_loop(student_numbers: list[str], tasks: list[c.Task]) -> list[c.Student]:
+    students: list[c.Student] = []
+    for i, student_number in enumerate(student_numbers):
+        student = c.Student(student_number)
+        for task in tasks:
+            student.task_results.append(eval(student_number, task))
+        students.append(student)
         if c.PRINT_SCORE:
-            progress = f"({i + 1}/{len(students)})"
-            print_score(s, res_student, progress)
-    return res
+            progress = f"({i + 1}/{len(student_numbers)})"
+            print_score(student, progress)
+    return students
 
 
-def eval(student, task):
-    r = {"task":task["name"], "compile":None, "run":None}
-    exe = f"{student}_{task["name"]}"
-    c.debug("\n")
-    c.debug(exe, "eval")
+def eval(student_number: str, task: c.Task) -> c.TaskResult:
+    task_result = c.TaskResult(task.tasknumber)
+    current_process = f"{student_number}_{task.tasknumber}"
+    c.debug("")
+    c.debug(current_process, "eval")
     c.debug("----------------------")
-    src = get_latest_src(student, task["name"])
-    c.debug(src, "srcfile")
+    src_filename = get_latest_src(student_number, task.tasknumber)
+    c.debug(str(src_filename), "srcfile")
     # コンパイル
     temp_reset()  # Tempフォルダの初期化
-    r["compile"] = compile(src, exe)
-    c.debug(str(r["compile"]), "compile")
-    if r["compile"]["result"]:
+    task_result.compile_result = compile(src_filename, current_process)
+    c.debug(task_result.compile_result.content(), "compile")
+    if task_result.compile_result.result:
         # コンパイル成功ならテスト実行
-        r["run"] = run_loop(exe + ".exe", task)
-        c.debug("", "run_loop")
-        c.debug(pprint.pformat(r["run"], sort_dicts=False))
-        mv_temp2bin(exe + ".exe")  # 実行が終わったバイナリはbinフォルダへ移動
-    return r
+        task_result.run_results = run_loop(current_process + ".exe", task)
+        if task_result.run_results is None:
+            c.debug("コンパイルのみ", "eval")
+        else:
+            c.debug("", "run_loop")
+            for i, run_result in enumerate(task_result.run_results):
+                c.debug(f"  [{i}] {run_result.content()}")
+        mv_temp2bin(current_process + ".exe")  # 実行が終わったバイナリはbinフォルダへ移動
+    return task_result
 
 
-def get_latest_src(student, taskname):
-    #命名条件に合致するファイルが一つもなければNoneを返す
-    #命名条件に合致するファイルがあれば，評価対象のファイル名を返す
+def get_latest_src(student_number: str, tasknumber: str) -> str | None:
+    """評価対象（提出された中で一番最新）のソースファイルを識別して，そのファイル名を返す
+
+    :param str student_number: 学籍番号
+    :param str tasknumber: 課題番号
+    :return:
+        命名条件に合致するファイルがあれば，評価対象のファイル名をstrで返す
+        命名条件に合致するファイルが一つもなければNoneを返す
+    :rtype: str | None
+    """
     global srclist
-    r = student + "_" + taskname + r"(\([1-9][0-9]*\))?" + ".c"
+    r = student_number + "_" + tasknumber + r"(\([1-9][0-9]*\))?" + ".c"
     src = [x for x in srclist if re.match(r, x)]
-    #命名条件に合致するファイルが一つもない -> None
+    # 命名条件に合致するファイルが一つもない -> None
     if len(src) == 0:
         return None
-    #チェックしたファイルをソースファイルリストから削除する
+    # チェックしたファイルをソースファイルリストから削除する
     for s in src:
         srclist.remove(s)
-    #チェックすべきソースファイルを識別
-    #最新の提出物は，拡張子の前に番号が「付かない」，ピュアなファイル名のもの
-    return f"{student}_{taskname}.c"
+    # チェックすべきソースファイルを識別
+    # 最新の提出物は，拡張子の前に番号が「付かない」，ピュアなファイル名のもの
+    return f"{student_number}_{tasknumber}.c"
 
 
-def compile(src, exe):
-    res = {"result":True, "reason":None, "stdout":None}
-    if src is None:
-        res["result"] = False
-        res["reason"] = "未提出orﾌｧｲﾙ名間違い"
-        return res
-    src_abs = os.path.join(os.path.abspath(c.SRC_PATH), src)
-    exe_abs = os.path.join(os.path.abspath(c.TEMP_PATH), exe)
+def compile(src_filename: str | None, exe_filename: str) -> c.CompileResult:
+    compile_result = c.CompileResult()
+    if src_filename is None:
+        compile_result.result = False
+        compile_result.reason = "未提出orﾌｧｲﾙ名間違い"
+        return compile_result
+    src_abs = os.path.join(os.path.abspath(c.SRC_PATH), src_filename)
+    exe_abs = os.path.join(os.path.abspath(c.TEMP_PATH), exe_filename)
     cmd = ["gcc.exe", src_abs, "-o", exe_abs]
+    c.debug(str(cmd), "compile")
     r = subprocess.run(cmd, cwd=c.GCC_PATH, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,shell=True)
     (stdout_str, stdout_encode) = c.byte2str(r.stdout)
-    c.debug(f"Encode of stdout: {stdout_encode}", "compile")
-    res["stdout"] = stdout_str
+    c.debug(f"Encode of stdout: {stdout_encode.value}", "compile")
+    compile_result.stdout = stdout_str
     if r.returncode != 0:
         #コンパイル失敗
-        res["result"] = False
-        res["reason"] = "コンパイルエラー"
-        if res["stdout"] is None:
-            res["reason"] += " + 未サポートｴﾝｺｰﾄﾞ"
-    return res
+        compile_result.result = False
+        compile_result.reason = "コンパイルエラー"
+        if stdout_encode == c.Encode.ERROR:
+            compile_result.reason += " + 未サポートｴﾝｺｰﾄﾞ"
+    return compile_result
 
 
-def run_loop(exe, task):
-    res = []
-    for case_num, case in enumerate(task["case"], start = 0):
-        res += [run_exe(exe, case_num, case)]
-    return res
+def run_loop(exe: str, task: c.Task) -> list[c.RunResult] | None:
+    if task.testcases is None:
+        return None  # コンパイルのみの場合はNone
+    run_results: list[c.RunResult] = []
+    for case_num, testcase in enumerate(task.testcases, start = 0):
+        run_results.append(run_exe(exe, case_num, testcase))
+    return run_results
 
 
-def run_exe(exe, case_num, case):
+def run_exe(exe: str, case_num: int, testcase: c.Testcase) -> c.RunResult:
     cmd = exe
-    if case["arg"] is not None:
-        c.debug(case["arg"], "arg")
-        cmd = cmd + " " + case["arg"]
-    res = {"result":None, "reason":None, "output":None, "ratio":None}
+    if testcase.arg is not None:
+        c.debug(testcase.arg, "arg")
+        cmd = cmd + " " + testcase.arg
+    run_result = c.RunResult()
     proc = subprocess.Popen(cmd, cwd=c.TEMP_PATH, stdout=subprocess.PIPE, stdin=subprocess.PIPE, shell=True)
     try:
-        if case["in"] is None:
+        if testcase.stdin is None:
             r = proc.communicate(timeout=c.TIMEOUT)
         else:
-            r = proc.communicate(timeout=c.TIMEOUT, input=case["in"].encode("cp932"))
+            r = proc.communicate(timeout=c.TIMEOUT, input=testcase.stdin.encode(c.Encode.SJIS))
     except subprocess.TimeoutExpired:
         #タイムアウト
         proc.kill()
-        c.debug("Time Out.", "run")
-        res["result"] = False
-        res["reason"] = "タイムアウト"
-        return res
-    (stdout_str, stdout_encode) = c.byte2str(r[0])  #標準出力のバイトストリームを文字列に変換
-    c.debug(f"Encode of stdout[{case_num}]: {stdout_encode}", "run_exe")
-    res["output"] = stdout_str
-    if case["out"] is not None:
-        if res["output"] is None:
-            res["result"] = False
-            res["reason"] = "未サポートｴﾝｺｰﾄﾞ"
-            return res
-        res["ratio"] = round(difflib.SequenceMatcher(None, res["output"], case["out"], False).ratio(), 3)
-        if res["output"] == case["out"]:
-            res["result"] = True
+        c.debug("タイムアウト.", "run_exe")
+        run_result.result = c.RunResultState.NG
+        run_result.reason = "タイムアウト"
+        return run_result
+    (stdout_str, stdout_encode) = c.byte2str(r[0])  # 標準出力のバイトストリームを文字列に変換
+    c.debug(f"Encode of stdout[{case_num}]: {stdout_encode.value}", "run_exe")
+    if stdout_encode == c.Encode.ERROR:
+        run_result.result = c.RunResultState.UNRATED
+        run_result.reason = "未サポートｴﾝｺｰﾄﾞ"
+    elif testcase.stdout is None:
+        run_result.result = c.RunResultState.SKIP
+    else:
+        run_result.stdout = stdout_str
+        run_result.ratio = round(difflib.SequenceMatcher(None, stdout_str, testcase.stdout, False).ratio(), 3)
+        if run_result.stdout == testcase.stdout:
+            run_result.result = c.RunResultState.OK
         else:
-            res["reason"] = "ﾃｽﾄｹｰｽと不一致"
-            res["result"] = False
-    return res
+            run_result.result = c.RunResultState.NG
+            run_result.reason = "ﾃｽﾄｹｰｽと不一致"
+    return run_result
 
 
-def print_score(s, res_student, progress):
-    output = "Student No.: " + s + "   " + progress
-    for r in res_student:
-        output += "\n\tTask: " + r["task"]
-        output += "\n\t\tCompile: " + bool2str(r["compile"]["result"], "OK", "NG")
-        if r["compile"]["result"]:
-            correct = 0
-            failed = 0
-            skip = 0
-            for i in range(len(r["run"])):
-                output += "\n\t\t[" + str(i) + "] -> Result: " + bool2str(r["run"][i]["result"], "OK", "NG", "SKIP")
-                if r["run"][i]["result"] is None:
-                    skip += 1
-                elif r["run"][i]["result"] == True:
-                    correct += 1
-                else:
-                    failed += 1
-                    if r["run"][i]["reason"] is not None:
-                        output += f" (Reason: {r['run'][i]['reason']})"
-                    if r["run"][i]["ratio"] is not None:
-                        output += f" (Ratio: {r['run'][i]['ratio']})"
-            output += f"\n\t\tSummary: {correct}/{correct + failed}  (skip:{skip})"
+def print_score(student: c.Student, progress):
+    output = f"学籍番号: {student.student_number}  {progress}\n"
+    for task_result in student.task_results:
+        output += c.str_indent(f"課題番号: {task_result.tasknumber}\n", 1)
+        output += c.str_indent(f"コンパイル: {bool2str(task_result.compile_result.result, "OK", "NG")}\n", 2)
+        if task_result.compile_result.result:
+            run_results = task_result.run_results
+            if run_results is not None:
+                correct = 0
+                failed = 0
+                skip = 0
+                unrated = 0
+                for i, run_result in enumerate(run_results):
+                    output += c.str_indent(f"[{i}] -> Result: {run_result_to_str(run_result.result)}", 2)
+                    if run_result.result == c.RunResultState.SKIP:
+                        skip += 1
+                    elif run_result.result == c.RunResultState.OK:
+                        correct += 1
+                    elif run_result.result == c.RunResultState.NG:
+                        failed += 1
+                        if run_result.reason is not None:
+                            output += f" (理由: {run_result.reason})"
+                        if run_result.ratio is not None:
+                            output += f" (一致率: {run_result.ratio})"
+                    elif run_result.result == c.RunResultState.UNRATED:
+                        unrated += 1
+                        if run_result.reason is not None:
+                            output += f" (理由: {run_result.reason})"
+                    output += "\n"
+                output += c.str_indent(f"Summary: {correct}/{correct + failed + unrated}  (skip:{skip}, unrated:{unrated})\n", 2)
         else:
-            output += " (" + r["compile"]["reason"] + ")"
-    print(output + "\n")
+            # コンパイル失敗時
+            if task_result.compile_result.reason is not None:
+                output.rsplit("\n")  # 末尾の改行をキャンセル
+                output += f" ({task_result.compile_result.reason})\n"
+    print(output)
+
 
 
 def mv_temp2bin(exe):
@@ -230,42 +255,56 @@ def chkpath():
         c.error(f"結果ファイルの格納先フォルダ({c.RESULT_PATH})の中身を空にしてください．")
 
 
-def read_taskfiles(filename):
-    l = c.file2list(filename)
-    for i in range(len(l)):
-        if re.fullmatch(r'[1-9][0-9]*-((A[1-9])|([1-9][a-z]*)) [1-9]', l[i]):
-            temp = l[i].split(" ")
-            l[i] = {"name" : temp[0], "count" : int(temp[1]), "case" : []}
+def get_tasklist(filename) -> list[c.Task]:
+    taskfiles = c.file2list(filename)
+    tasks: list[c.Task] = []
+    for i in range(len(taskfiles)):
+        if re.fullmatch(r'[1-9][0-9]*-((A[1-9])|([1-9][a-z]*)) [1-9]', taskfiles[i]):
+            temp = taskfiles[i].split(" ")
+            testcases: list[c.Testcase] = read_casefiles(temp[0], int(temp[1]))
+            tasks.append(c.Task(temp[0], testcases))
         else:
             c.error("'tasks.txt'の構文エラー")
-    return l
+    return tasks
 
 
-def read_casefiles(l):
-    for i in range(len(l)):
-        count = l[i]["count"]
-        for j in range(count):
-            d = {"arg":None, "out":None, "in":None}
-            file_arg = os.path.join(c.CASE_PATH, l[i]["name"] + "_" + str(j) + "_arg.txt")
-            file_out = os.path.join(c.CASE_PATH, l[i]["name"] + "_" + str(j) + "_out.txt")
-            file_in = os.path.join(c.CASE_PATH, l[i]["name"] + "_" + str(j) + "_in.txt")
-            if os.path.isfile(file_arg):
-                d["arg"] = c.file2list(file_arg)[0]
-            if os.path.isfile(file_out):
-                d["out"] = c.file2str(file_out)
-            if os.path.isfile(file_in):
-                d["in"] = c.file2str(file_in)
-            l[i]["case"] += [d]
-    return l
+def read_casefiles(tasknumber: str, case_num: int) -> list[c.Testcase]:
+    testcases: list[c.Testcase] = []
+    for i in range(case_num):
+        testcase = c.Testcase()
+        file_arg = os.path.join(c.CASE_PATH, tasknumber + "_" + str(i) + "_arg.txt")
+        file_out = os.path.join(c.CASE_PATH, tasknumber + "_" + str(i) + "_out.txt")
+        file_in = os.path.join(c.CASE_PATH, tasknumber + "_" + str(i) + "_in.txt")
+        if os.path.isfile(file_arg):
+            testcase.arg = c.file2list(file_arg)[0]  # 1行目だけ
+        if os.path.isfile(file_out):
+            testcase.stdout = c.file2str(file_out)
+        if os.path.isfile(file_in):
+            testcase.stdin = c.file2str(file_in)
+        testcases.append(testcase)
+    return testcases
 
 
-def bool2str(b, str_true, str_false, none = None):
+def bool2str(b: bool, str_true: str, str_false: str, none: str = "None"):
     if b is None:
         return c.str_color(c.Color.BG_CYAN, none)
     elif b:
         return c.str_color(c.Color.BG_BLUE, str_true)
     else:
         return c.str_color(c.Color.BG_RED, str_false)
+
+
+def run_result_to_str(res: c.RunResultState) -> str:
+    if res == c.RunResultState.OK:
+        return c.str_color(c.Color.BG_BLUE, res)
+    elif res == c.RunResultState.NG:
+        return c.str_color(c.Color.BG_RED, res)
+    elif res == c.RunResultState.SKIP:
+        return c.str_color(c.Color.BG_CYAN, res)
+    elif res == c.RunResultState.UNRATED:
+        return c.str_color(c.Color.BG_LIGHTGRAY, res)
+    else:
+        return res
 
 
 def chkarg():

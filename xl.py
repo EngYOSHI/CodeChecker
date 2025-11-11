@@ -1,16 +1,14 @@
 import os
 import openpyxl
+import re
 
 import common as c
 
 
-def write_xl(res):
-    #[{student:str,
-    #  result:[{task:str,
-    #           compile:{result:bool, reason:None|str, stdout:str|None},
-    #           run:[{result:bool|None, reason:None|str, output:str|None, ratio:float|None} | None]
-    #         }]
-    #}]
+_ILLEGAL_CHARACTERS_RE = re.compile(r"[\000-\010]|[\013-\014]|[\016-\037]")
+
+
+def write_xl(students: list[c.Student]):
     wb = openpyxl.Workbook()
     wb.properties.creator = 'CodeChecker'
     wb.properties.lastModifiedBy = 'CodeChecker'
@@ -24,35 +22,45 @@ def write_xl(res):
     ws.column_dimensions["I"].width = 13
     ws.freeze_panes = "A2" #先頭行を固定
     row = 2
-    for res_student in res:
-        ws.cell(row=row, column=1).value = res_student["student"]
-        for task in res_student["result"]:
-            ws.cell(row=row, column=2).value = task["task"]
-            ws.cell(row=row, column=3).value = valconv(task["compile"]["result"], bool, t = "OK", f = "NG")
+    for student in students:
+        ws.cell(row=row, column=1).value = student.student_number
+        for task in student.task_results:
+            ws.cell(row=row, column=2).value = task.tasknumber
+            ws.cell(row=row, column=3).value = valconv(task.compile_result.result, bool, "OK", "NG")
             cellfill(ws.cell(row=row, column=3), [("OK", "00b050"),("NG", "e09694")])
-            ws.cell(row=row, column=4).value = valconv(task["compile"]["reason"], str, none="")
-            ws.cell(row=row, column=5).value = valconv(task["compile"]["stdout"], str, none="")
-            if task["run"] is None:
+            ws.cell(row=row, column=4).value = valconv(task.compile_result.reason, str, none="")
+            ws.cell(row=row, column=5).value = task.compile_result.stdout
+            if task.run_results is None:
                 ws.cell(row=row, column=6).value = "　" #コンパイルログが右のセルにはみ出さないように
                 row += 1
                 continue
-            for i, run in enumerate(task["run"]):
-                ws.cell(row=row, column=6).value = task["task"] + "_" + str(i + 1)
-                ws.cell(row=row, column=7).value = valconv(run["result"], bool, t="OK", f="NG", none="SKIP")
-                cellfill(ws.cell(row=row, column=7), [("OK", "00b050"),("NG", "e09694"),("SKIP", "c5d9f1")])
-                ws.cell(row=row, column=8).value = valconv(run["reason"], str, none="")
-                ws.cell(row=row, column=9).value = valconv(run["ratio"], float, none="")
-                ws.cell(row=row, column=10).value = valconv(run["output"], str, none="")
+            for i, run_result in enumerate(task.run_results):
+                ws.cell(row=row, column=6).value = task.tasknumber + f" [{str(i + 1)}]"
+                ws.cell(row=row, column=7).value = run_result.result.value
+                cellfill(ws.cell(row=row, column=7),
+                         [(c.RunResultState.OK, "00b050"),
+                          (c.RunResultState.NG, "e09694"),
+                          (c.RunResultState.SKIP, "c5d9f1"),
+                          (c.RunResultState.UNRATED, "a2a2a2")]
+                        )
+                ws.cell(row=row, column=8).value = valconv(run_result.reason, str, none="")
+                ws.cell(row=row, column=9).value = valconv(run_result.ratio, float, none="")
+                if run_result.stdout is None:
+                    ws.cell(row=row, column=10).value = ""
+                else:
+                    # 不正な文字が含まれているとIllegalCharacterError例外を出して止まるので排除
+                    stdout = _ILLEGAL_CHARACTERS_RE.sub("", str(run_result.stdout))
+                    ws.cell(row=row, column=10).value = valconv(stdout, str, none="")
                 row += 1
     path = os.path.join(c.RESULT_PATH, "result.xlsx")
     wb.save(path)
 
 
-def valconv(data, type, t = "True", f = "False", none = "None"):
+def valconv(data, type, str_true = "True", str_false = "False", none = "None"):
     if data is None: return none
     elif type == bool:
-        if data: return t
-        else: return f
+        if data: return str_true
+        else: return str_false
     else: return data
 
 
