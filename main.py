@@ -9,7 +9,7 @@ import shutil
 import common as c
 import xl
 
-srclist = []
+srclist: list[str] = []
 
 
 def main():
@@ -297,8 +297,9 @@ def chkarg():
 
 def src_listgen():
     global srclist
+    # SRC_PATHに入っているファイルのファイル名をlist[str]でsrclistに返す
     srclist = [
-        f for f in os.listdir(c.SRC_PATH) if os.path.join(os.path.join(c.SRC_PATH, f))
+        f for f in os.listdir(c.SRC_PATH) if os.path.isfile(os.path.join(c.SRC_PATH, f))
     ]
 
 
