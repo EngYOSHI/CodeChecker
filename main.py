@@ -226,6 +226,8 @@ def chkpath():
         c.error(f"タスクファイル'tasks.txt'が{c.CASE_PATH}にありません．")
     if not os.path.isdir(c.RESULT_PATH):
         c.error(f"結果ファイルの格納先({c.RESULT_PATH})がありません．")
+    if len(os.listdir(c.RESULT_PATH)) > 0:
+        c.error(f"結果ファイルの格納先フォルダ({c.RESULT_PATH})の中身を空にしてください．")
 
 
 def read_taskfiles(filename):
