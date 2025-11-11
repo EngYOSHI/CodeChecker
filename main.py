@@ -28,29 +28,29 @@ def main():
     students = file2list(os.path.join(CASE_PATH, "students.txt"))
     print("学生数: " + str(len(students)))
     debug(students)
-    tasks = readTaskFile(os.path.join(CASE_PATH, "tasks.txt"))
+    tasks = read_taskfiles(os.path.join(CASE_PATH, "tasks.txt"))
     print("課題数: " + str(len(tasks)))
-    tasks = readCaseFile(tasks)
+    tasks = read_casefiles(tasks)
     debug(pprint.pformat(tasks, sort_dicts=False))
-    makeSrcFileList()
+    src_listgen()
     print("ソースファイル数: " + str(len(srclist)))
     debug(srclist)
     res = eval_loop(students, tasks)
-    temp_del()  # tempフォルダを削除
+    del_temp()  # tempフォルダを削除
     #pprint.pprint(res, sort_dicts=False)
     print("未処理のファイル数: " + str(len(srclist)))
     print("結果をxlsxファイルに書き込み中...")
-    writexl(res)
-    writeuntouched()
+    write_xl(res)
+    write_untouched()
 
 
-def writeuntouched():
+def write_untouched():
     with open(os.path.join(RESULT_PATH, "untouched.txt"), 'w') as f:
         for x in srclist:
             f.write(x + "\n")
 
 
-def writexl(res):
+def write_xl(res):
     #[{student:str,
     #  result:[{task:str,
     #           compile:{result:bool, reason:None|str, stdout:str|None},
@@ -63,8 +63,8 @@ def writexl(res):
     wb.properties.lastModifiedBy = 'CodeChecker'
     ws = wb["Sheet"]
     ws.append(["学籍番号", "課題番号", "ｺﾝﾊﾟｲﾙ結果", "コンパイル備考", "コンパイルログ", "ﾃｽﾄｹｰｽ", "テスト結果", "テスト結果備考", "ﾃｽﾄｹｰｽ一致率", "標準出力"])
-    for c in list("ABDEHJ"):
-        ws.column_dimensions[c].width = 20
+    for char in list("ABDEHJ"):
+        ws.column_dimensions[char].width = 20
     ws.column_dimensions["C"].width = 10
     ws.column_dimensions["F"].width = 7
     ws.column_dimensions["G"].width = 11
@@ -96,7 +96,7 @@ def writexl(res):
         try:
             wb.save(path)
         except PermissionError:
-            print(strcolor(Color.RED, f'File "{path}" is open! Please close the file.'))
+            print(str_color(Color.RED, f'File "{path}" is open! Please close the file.'))
             print("Retry in 5 seconds...")
             time.sleep(5)
             continue
@@ -129,7 +129,7 @@ def eval_loop(students, tasks):
         res += [{"student":s, "result":res_student}]
         if PRINT_SCORE:
             progress = f"({i + 1}/{len(students)})"
-            printScore(s, res_student, progress)
+            print_score(s, res_student, progress)
     return res
 
 
@@ -139,7 +139,7 @@ def eval(student, task):
     debug("\n")
     debug(exe, "eval")
     debug("----------------------")
-    src = findLatestSrc(student, task["name"])
+    src = get_latest_src(student, task["name"])
     debug(src, "srcfile")
     # コンパイル
     temp_reset()  # Tempフォルダの初期化
@@ -154,7 +154,7 @@ def eval(student, task):
     return r
 
 
-def findLatestSrc(student, taskname):
+def get_latest_src(student, taskname):
     #命名条件に合致するファイルが一つもなければNoneを返す
     #命名条件に合致するファイルがあれば，評価対象のファイル名を返す
     global srclist
@@ -233,7 +233,7 @@ def run_exe(exe, taskfn, case):
     return res
 
 
-def printScore(s, res_student, progress):
+def print_score(s, res_student, progress):
     output = "Student No.: " + s + "   " + progress
     for r in res_student:
         output += "\n\tTask: " + r["task"]
@@ -258,7 +258,6 @@ def printScore(s, res_student, progress):
         else:
             output += " (" + r["compile"]["reason"] + ")"
     print(output + "\n")
-    
 
 
 def mv_temp2bin(exe):
@@ -275,7 +274,7 @@ def mv_temp2bin(exe):
     shutil.move(mv_from, mv_to)
 
 
-def temp_del():
+def del_temp():
     """一時保存フォルダ(temp)がある場合削除する"""
     if os.path.isdir(TEMP_PATH):
         shutil.rmtree(TEMP_PATH)
@@ -287,7 +286,7 @@ def temp_reset():
     一時保存フォルダが存在する場合はフォルダごと消す
     その後，workフォルダをtempフォルダとしてコピー
     """
-    temp_del()
+    del_temp()
     debug(f"Copying working files: {WORK_PATH} -> {TEMP_PATH}", "temp_reset")
     shutil.copytree(WORK_PATH, TEMP_PATH)
 
@@ -326,7 +325,7 @@ def file2str(filename):
     return s
 
 
-def readTaskFile(filename):
+def read_taskfiles(filename):
     l = file2list(filename)
     for i in range(len(l)):
         if re.fullmatch(r'[1-9][0-9]*-((A[1-9])|([1-9][a-z]*)) [1-9]', l[i]):
@@ -337,7 +336,7 @@ def readTaskFile(filename):
     return l
 
 
-def readCaseFile(l):
+def read_casefiles(l):
     for i in range(len(l)):
         count = l[i]["count"]
         for j in range(count):
@@ -376,27 +375,27 @@ def byte2str(byte) -> str:
     return None
 
 
-def bool2str(b, t, f, none = None):
+def bool2str(b, str_true, str_false, none = None):
     if b is None:
-        return strcolor(Color.BG_CYAN, none)
+        return str_color(Color.BG_CYAN, none)
     elif b:
-        return strcolor(Color.BG_BLUE, t)
+        return str_color(Color.BG_BLUE, str_true)
     else:
-        return strcolor(Color.BG_RED, f)
+        return str_color(Color.BG_RED, str_false)
 
 
-def error(msg, e=True):
-    print(strcolor(Color.RED, str(msg)))
-    if e:
+def error(msg, need_exit: bool = True):
+    print(str_color(Color.RED, str(msg)))
+    if need_exit:
         sys.exit(1)
 
 
 def debug(msg, title = None):
     if DEBUG:
         if title is not None:
-            print(strcolor(Color.BG_GREEN, title + ":") + strcolor(Color.GREEN, " " + str(msg)))
+            print(str_color(Color.BG_GREEN, title + ":") + str_color(Color.GREEN, " " + str(msg)))
         else:
-            print(strcolor(Color.GREEN, str(msg)))
+            print(str_color(Color.GREEN, str(msg)))
 
 
 def chkarg():
@@ -427,7 +426,7 @@ def chkarg():
     debug(f"タイムアウト: {TIMEOUT}s", "chkarg")
 
 
-def makeSrcFileList():
+def src_listgen():
     global SRC_PATH, srclist
     srclist = [
         f for f in os.listdir(SRC_PATH) if os.path.join(os.path.join(SRC_PATH, f))
@@ -446,12 +445,12 @@ class Color:
     BG_CYAN = "\033[46m"
 
 
-def strcolor(c, s: str):
+def str_color(color: Color, s: str):
     global NOCOLOR
     if NOCOLOR:
         return s
     else:
-        return c + s + Color.RESET
+        return color + s + Color.RESET
 
 
 if __name__ == "__main__":
