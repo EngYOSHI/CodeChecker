@@ -224,3 +224,10 @@ def file2str(filename: str, err_exit = False) -> tuple[str, Encode]:
     if err_exit and enc == Encode.ERROR:
         error(f"{filename}の読み込みでエンコードエラー．UTF-8のBOM無で記述してください．", True)
     return (s, enc)
+
+
+def get_fileenc(filename: str) -> Encode:
+    with open(filename, 'rb') as f:
+        b = f.read()
+        (_, enc) = byte2str(b)
+    return enc

@@ -109,7 +109,8 @@ def compile(src_filename: str | None, exe_filename: str) -> c.CompileResult:
     shutil.copy(copy_from, c.TEMP_PATH)
     src_abs = os.path.join(os.path.abspath(c.TEMP_PATH), src_filename)
     exe_abs = os.path.join(os.path.abspath(c.TEMP_PATH), exe_filename)
-    cmd = ["gcc.exe", src_abs, "-o", exe_abs]
+    enc = c.get_fileenc(src_abs)
+    cmd = ["gcc.exe", f"-finput-charset={enc.value}", src_abs, "-o", exe_abs]
     c.debug(str(cmd), "compile")
     r = subprocess.run(cmd, cwd=c.GCC_PATH, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,shell=True)
     (stdout_str, stdout_encode) = c.byte2str(r.stdout)
