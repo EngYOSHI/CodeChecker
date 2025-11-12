@@ -105,7 +105,9 @@ def compile(src_filename: str | None, exe_filename: str) -> c.CompileResult:
         compile_result.result = False
         compile_result.reason = "未提出orﾌｧｲﾙ名間違い"
         return compile_result
-    src_abs = os.path.join(os.path.abspath(c.SRC_PATH), src_filename)
+    copy_from = os.path.join(c.SRC_PATH, src_filename)
+    shutil.copy(copy_from, c.TEMP_PATH)
+    src_abs = os.path.join(os.path.abspath(c.TEMP_PATH), src_filename)
     exe_abs = os.path.join(os.path.abspath(c.TEMP_PATH), exe_filename)
     cmd = ["gcc.exe", src_abs, "-o", exe_abs]
     c.debug(str(cmd), "compile")
