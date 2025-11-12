@@ -4,14 +4,13 @@ import re
 import difflib
 import argparse
 import shutil
-from concurrent.futures import ThreadPoolExecutor, TimeoutError
+import multiprocessing
 
 import common as c
 import xl
 
 
 srclist: list[str] = []
-executor = ThreadPoolExecutor(max_workers=1)
 
 
 def main():
@@ -31,7 +30,6 @@ def main():
     print("結果をxlsxファイルに書き込み中...")
     xl.write_xl(students)
     write_untouched()
-    os._exit(0)
 
 
 def write_untouched():
@@ -191,17 +189,26 @@ def run_exe(exe: str, case_num: int,
     return run_result
 
 
-def get_ratio(a, b):
-    future = executor.submit(compute_ratio, a, b)
-    try:
-        return future.result(timeout=c.TIMEOUT_CALC_RATIO)
-    except TimeoutError:
+def get_ratio(a, b) -> float | None:
+    result_queue = multiprocessing.Queue()
+    process = multiprocessing.Process(target=compute_ratio, args=(a, b, result_queue))
+    process.start()
+    process.join(timeout = c.TIMEOUT_CALC_RATIO)
+    if process.is_alive():
+        process.terminate()
+        process.join()
         c.debug("一致率計算タイムアウト", "get_ratio")
         return None
+    else:
+        return result_queue.get() if not result_queue.empty() else None
 
 
-def compute_ratio(a, b):
-    return round(difflib.SequenceMatcher(None, a, b, False).ratio(), 3)
+def compute_ratio(a, b, result_queue):
+    try:
+        ratio = round(difflib.SequenceMatcher(None, a, b, False).ratio(), 3)
+        result_queue.put(ratio)
+    except Exception as e:
+        result_queue.put(None)
 
 
 def print_score(student: c.Student, progress):
@@ -219,6 +226,8 @@ def print_score(student: c.Student, progress):
                 notest = 0
                 for i, run_result in enumerate(run_results, 1):
                     output += c.str_indent(f"[{i}] -> 結果: {run_result_to_str(run_result.result)}", 3)
+                    if run_result.reason is not None:
+                        output += f" (理由: {run_result.reason})"
                     if run_result.result == c.RunResultState.SKIP:
                         skip += 1
                     elif run_result.result == c.RunResultState.NOTEST:
@@ -227,12 +236,10 @@ def print_score(student: c.Student, progress):
                         correct += 1
                     elif run_result.result == c.RunResultState.NG:
                         failed += 1
+                        if run_result.ratio is not None:
+                            output += f" (一致率: {run_result.ratio})"
                     elif run_result.result == c.RunResultState.ENCERR:
                         encerr += 1
-                    if run_result.reason is not None:
-                        output += f" (理由: {run_result.reason})"
-                    if run_result.ratio is not None:
-                        output += f" (一致率: {run_result.ratio})"
                     output += "\n"
                 output += c.str_indent(f"サマリ: {correct}/{correct + failed + encerr}  (スキップ:{skip}, 未評価:{notest + encerr})\n", 2)
         else:
