@@ -57,18 +57,15 @@ def write_xl(students: list[c.Student]):
                 ws["H" + str(row)].value = valconv(run_result.reason, str, none="")
                 ws["I" + str(row)].value = valconv(run_result.ratio, float, none="")
                 ws["I" + str(row)].number_format = "0.000"
-                if run_result.stdout is None:
-                    ws["J" + str(row)].value = ""
-                else:
-                    # 不正な文字が含まれているとIllegalCharacterError例外を出して止まるので?に置き換え
-                    stdout = _ILLEGAL_CHARACTERS_RE.sub("?", run_result.stdout)
-                    ws["J" + str(row)].value = valconv(stdout, str, none="")
-                # 折り返して全体を表示
-                for column in wraptext:
-                    ws[column + str(row)].alignment = Alignment(wrapText = True,
-                                                                vertical = 'top')
-                ws.row_dimensions[row].height = 13.5
+                ws["J" + str(row)].value = str_escape(run_result.stdout)
                 row += 1
+    # 全体的な設定
+    for row2 in range(2, row):
+        # 折り返して全体を表示
+        for column in wraptext:
+            ws[column + str(row2)].alignment = Alignment(
+                wrapText = True, vertical = 'top')
+        ws.row_dimensions[row2].height = 13.5  # 高さ調節
     path = os.path.join(c.RESULT_PATH, "result.xlsx")
     wb.save(path)
 
@@ -81,7 +78,15 @@ def write_common(ws, row: int, student_number: str, task_number: str,
     cellfill(ws["C" + str(row)], [("OK", "00b050"),("NG", "e09694")])
     ws["C" + str(row)].alignment = Alignment(horizontal = "center")
     ws["D" + str(row)].value = valconv(compile_reason, str, none="")
-    ws["E" + str(row)].value = compile_stdout
+    ws["E" + str(row)].value = str_escape(compile_stdout)
+
+
+def str_escape(s: str | None) -> str:
+    """不正な文字が含まれているとIllegalCharacterError例外を出して止まるので?に置き換え"""
+    if s is None:
+        return ""
+    else:
+        return _ILLEGAL_CHARACTERS_RE.sub("?", s)
 
 
 def valconv(data, type, str_true = "True", str_false = "False", none = "None"):

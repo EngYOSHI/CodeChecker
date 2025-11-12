@@ -208,7 +208,7 @@ def print_score(student: c.Student, progress):
         else:
             # コンパイル失敗時
             if task_result.compile_result.reason is not None:
-                output.rsplit("\n")  # 末尾の改行をキャンセル
+                output = output.rstrip("\n")  # 末尾の改行をキャンセル
                 output += f" ({task_result.compile_result.reason})\n"
     print(output)
 
