@@ -59,16 +59,21 @@ class Testcase:
 class Task:
     tasknumber: str  # 課題番号
     testcases: list[Testcase] | None  # テストケースのリスト，コンパイルのみの場合はNone
+    outfile: None | str = None  # ファイル出力をチェックする場合はそのファイル名
 
-    def __init__(self, tasknumber: str, testcases: list[Testcase] | None):
+    def __init__(self, tasknumber: str,
+                 testcases: list[Testcase] | None, outfile: None | str):
         self.tasknumber = tasknumber
         self.testcases = testcases
+        self.outfile = outfile
 
     def content(self, offset: int = 0) -> str:
         s = str_indent(f"課題番号: {self.tasknumber}\n", offset)
         if self.testcases is None:
             s += str_indent("コンパイルのみ\n", offset + 1)
         else:
+            if self.outfile is not None:
+                s += str_indent(f"ﾁｪｯｸ対象ﾌｧｲﾙ: {self.outfile}\n", offset + 1)
             for i, testcase in enumerate(self.testcases, 1):
                 s += str_indent(f"[{i}]: {testcase.content()}\n", offset + 1)
         return s.rstrip("\n")
@@ -186,36 +191,36 @@ def debug(msg: str, title: str | None = None):
             print(str_color(Color.GREEN, msg))
 
 
-def file2list(filename: str) -> list[str]:
+def file2list(filename: str, err_exit: bool = False) -> tuple[list[str], Encode]:
     """テキストファイルをUTF-8で読み込み，各行を要素とするlist[str]を返す
 
     :param str filename: テキストファイル名
-    :return: テキストファイルの中身
-    :rtype: list[str]
+    :param err_exit bool: エンコードエラーのとき終了するか
+    :return: (ファイルの中身, ファイルのエンコード)
+    :rtype: tuple[str, Encode]
     """
-    with open(filename, 'r', encoding=Encode.UTF8) as f:
-        try:
-            l = f.readlines()
-        except UnicodeDecodeError:
-            error(f"{filename}の読み込みでエンコードエラー．UTF-8のBOM無で記述してください．", True)
-    for i in range(len(l)):
-        if l[i].strip() == "":
-            l.pop(i)
-        else:
-            l[i] = l[i].rstrip("\n")
-    return l
+    (s, enc) = file2str(filename, err_exit)
+    l = s.splitlines()
+    # 中身がないもの(空文字，改行や空白文字だけ)は排除
+    l = [x for x in l if x.strip() != ""]
+    return (l, enc)
 
 
-def file2str(filename: str) -> str:
-    """テキストファイルをUTF-8で読み込み，strとして返す
+def file2str(filename: str, err_exit = False) -> tuple[str, Encode]:
+    """テキストファイルを読み込み，strとして返す
 
     :param str filename: テキストファイル名
-    :return: テキストファイルの中身
-    :rtype: str
+    :param err_exit bool: エンコードエラーのとき終了するか
+    :return: (ファイルの中身, ファイルのエンコード)
+    :rtype: tuple[str, Encode]
     """
-    with open(filename, 'r', encoding=Encode.UTF8) as f:
+    with open(filename, 'rb') as f:
         try:
-            s = f.read()
-        except UnicodeDecodeError:
-            error(f"{filename}の読み込みでエンコードエラー．UTF-8のBOM無で記述してください．", True)
-    return s
+            b = f.read()
+            (s, enc) = byte2str(b)
+        except FileNotFoundError:
+            error(f"{filename}がありません．", True)
+    debug(f"{filename}: {enc.value}", "file2str")
+    if err_exit and enc == Encode.ERROR:
+        error(f"{filename}の読み込みでエンコードエラー．UTF-8のBOM無で記述してください．", True)
+    return (s, enc)

@@ -13,7 +13,7 @@ srclist: list[str] = []
 
 
 def main():
-    student_numbers = c.file2list(os.path.join(c.CASE_PATH, "students.txt"))
+    (student_numbers, _) = c.file2list(os.path.join(c.CASE_PATH, "students.txt"), True)
     print("学生数: " + str(len(student_numbers)))
     c.debug(str(student_numbers))
     tasks:list[c.Task] = get_tasklist(os.path.join(c.CASE_PATH, "tasks.txt"))
@@ -133,12 +133,14 @@ def run_loop(exe: str, task: c.Task) -> list[c.RunResult]:
         run_result.reason = "ﾃｽﾄｹｰｽなし"
         run_results.append(run_result)
     else:
-        for case_num, testcase in enumerate(task.testcases, start = 0):
-            run_results.append(run_exe(exe, case_num, testcase))
+        for case_num, testcase in enumerate(task.testcases):
+            run_results.append(
+                run_exe(exe, case_num, testcase, task.outfile))
     return run_results
 
 
-def run_exe(exe: str, case_num: int, testcase: c.Testcase) -> c.RunResult:
+def run_exe(exe: str, case_num: int,
+            testcase: c.Testcase, outfile: None | str) -> c.RunResult:
     cmd = exe
     if testcase.arg is not None:
         c.debug(testcase.arg, "arg")
@@ -157,8 +159,17 @@ def run_exe(exe: str, case_num: int, testcase: c.Testcase) -> c.RunResult:
         run_result.result = c.RunResultState.NG
         run_result.reason = "タイムアウト"
         return run_result
-    (stdout_str, stdout_encode) = c.byte2str(r[0])  # 標準出力のバイトストリームを文字列に変換
-    c.debug(f"Encode of stdout[{case_num}]: {stdout_encode.value}", "run_exe")
+    if outfile is None:
+        (stdout_str, stdout_encode) = c.byte2str(r[0])  # 標準出力のバイトストリームを文字列に変換
+        c.debug(f"Encode of stdout[{case_num}]: {stdout_encode.value}", "run_exe")
+    else:
+        filepath = os.path.join(c.TEMP_PATH, outfile)
+        if not os.path.isfile(filepath):
+            run_result.result = c.RunResultState.NG
+            run_result.reason = "出力ﾌｧｲﾙ名間違いorなし"
+            return run_result
+        (stdout_str, stdout_encode) = c.file2str(filepath)  # ファイルを読み込んで文字列に変換
+        c.debug(f"Encode of file[{case_num}]: {stdout_encode.value}", "run_exe")
     if stdout_encode == c.Encode.ERROR:
         run_result.result = c.RunResultState.ENCERR
         run_result.reason = "未サポートｴﾝｺｰﾄﾞ"
@@ -263,13 +274,22 @@ def chkpath():
 
 
 def get_tasklist(filename) -> list[c.Task]:
-    taskfiles = c.file2list(filename)
+    (taskfiles, _) = c.file2list(filename, True)
     tasks: list[c.Task] = []
+    pattern = re.compile(
+            r"(?P<kadai_number>[1-9][0-9]*-(?:A[1-9]|[1-9][a-z]*))"
+            r" (?P<testcase_num>[0-9])"
+            r"( outfile=\"(?P<outfile>[^\"]+)\")?"
+        )
     for taskfile in taskfiles:
-        if re.fullmatch(r'[1-9][0-9]*-((A[1-9])|([1-9][a-z]*)) [0-9]', taskfile):
-            temp = taskfile.split(" ")
-            testcases = read_casefiles(temp[0], int(temp[1]))
-            tasks.append(c.Task(temp[0], testcases))
+        match = re.fullmatch(pattern, taskfile)
+        if match:
+            kadai_number = match["kadai_number"]
+            testcase_num = int(match["testcase_num"])
+            outfile: str | None = match["outfile"]
+            testcases = read_casefiles(
+                kadai_number, testcase_num)
+            tasks.append(c.Task(kadai_number, testcases, outfile))
         else:
             c.error("'tasks.txt'の構文エラー")
     return tasks
@@ -285,11 +305,11 @@ def read_casefiles(tasknumber: str, case_num: int) -> list[c.Testcase] | None:
         file_out = os.path.join(c.CASE_PATH, f"{tasknumber}_{i}_out.txt")
         file_in = os.path.join(c.CASE_PATH, f"{tasknumber}_{i}_in.txt")
         if os.path.isfile(file_arg):
-            testcase.arg = c.file2list(file_arg)[0]  # 1行目だけ
+            (testcase.arg, _) = c.file2list(file_arg, True)[0]  # 1行目だけ
         if os.path.isfile(file_out):
-            testcase.stdout = c.file2str(file_out)
+            (testcase.stdout, _) = c.file2str(file_out, True)
         if os.path.isfile(file_in):
-            testcase.stdin = c.file2str(file_in)
+            (testcase.stdin, _) = c.file2str(file_in, True)
         testcases.append(testcase)
     return testcases
 

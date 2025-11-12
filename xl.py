@@ -15,7 +15,7 @@ def write_xl(students: list[c.Student]):
     wb.properties.lastModifiedBy = 'CodeChecker'
     ws = wb["Sheet"]
     ws.append(["学籍番号", "課題番号", "ｺﾝﾊﾟｲﾙ\n結果", "コンパイル備考", "コンパイルログ",
-               "ﾃｽﾄｹｰｽ", "テスト\n結果", "テスト結果備考", "ﾃｽﾄｹｰｽ\n一致率", "標準出力"])
+               "ﾃｽﾄｹｰｽ", "テスト\n結果", "テスト結果備考", "ﾃｽﾄｹｰｽ\n一致率", "標準出力\nファイル出力"])
     ws.row_dimensions[1].height = 27
     # 先頭行にスタイル適用
     for cell in ws[1]:
@@ -24,7 +24,7 @@ def write_xl(students: list[c.Student]):
         cell.font = Font(bold = True)
     # 列幅を設定
     column_width = {"A":11, "B":10, "C":10, "D":20, "E":20,
-                    "F":10, "G":10, "H":20, "I":10, "J":30}
+                    "F":10, "G":10, "H":23, "I":10, "J":30}
     for column, width in column_width.items():
         ws.column_dimensions[column].width = width
     ws.freeze_panes = "A2" #先頭行を固定
