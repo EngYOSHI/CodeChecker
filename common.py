@@ -1,4 +1,6 @@
 import sys
+import os
+import shutil
 from enum import Enum
 
 
@@ -12,6 +14,7 @@ RESULT_PATH = "result\\"
 TEMP_PATH = "temp\\"
 TIMEOUT = 5
 NOCOLOR = False
+OVERWRITE= False
 INDENT = 2
 
 
@@ -160,6 +163,12 @@ def byte2str(byte) -> tuple[str, Encode]:
         pass
     debug("サポートされていないエンコード", "byte2str")
     return "", Encode.ERROR
+
+
+def del_dir(dir: str):
+    """指定したフォルダを中身ごと削除する"""
+    if os.path.isdir(dir):
+        shutil.rmtree(dir)
 
 
 def error(msg: str, need_exit: bool = True):

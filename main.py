@@ -24,7 +24,7 @@ def main():
     print("ソースファイル数: " + str(len(srclist)))
     c.debug(str(srclist))
     students:list[c.Student] = eval_loop(student_numbers, tasks)
-    del_temp()  # tempフォルダを削除
+    c.del_dir(c.TEMP_PATH)  # tempフォルダを削除
     print("未処理のファイル数: " + str(len(srclist)))
     print("結果をxlsxファイルに書き込み中...")
     xl.write_xl(students)
@@ -221,19 +221,13 @@ def mv_temp2bin(exe):
     shutil.move(mv_from, mv_to)
 
 
-def del_temp():
-    """一時保存フォルダ(temp)がある場合削除する"""
-    if os.path.isdir(c.TEMP_PATH):
-        shutil.rmtree(c.TEMP_PATH)
-
-
 def temp_reset():
     """一時保存フォルダ(temp)を初期化する
     
     一時保存フォルダが存在する場合はフォルダごと消す
     その後，workフォルダをtempフォルダとしてコピー
     """
-    del_temp()
+    c.del_dir(c.TEMP_PATH)
     c.debug(f"Copying working files: {c.WORK_PATH} -> {c.TEMP_PATH}", "temp_reset")
     shutil.copytree(c.WORK_PATH, c.TEMP_PATH)
 
@@ -252,7 +246,11 @@ def chkpath():
     if not os.path.isdir(c.RESULT_PATH):
         c.error(f"結果ファイルの格納先({c.RESULT_PATH})がありません．")
     if len(os.listdir(c.RESULT_PATH)) > 0:
-        c.error(f"結果ファイルの格納先フォルダ({c.RESULT_PATH})の中身を空にしてください．")
+        if c.OVERWRITE:
+            c.del_dir(c.RESULT_PATH)
+            os.mkdir(c.RESULT_PATH)
+        else:
+            c.error(f"結果ファイルの格納先フォルダ({c.RESULT_PATH})の中身を空にしてください．")
 
 
 def get_tasklist(filename) -> list[c.Task]:
@@ -317,6 +315,7 @@ def chkarg():
     parser.add_argument('--temp', help="一時ファイル格納先を指定", type=str, default=c.TEMP_PATH)
     parser.add_argument('--timeout', help="1プログラム当たりのタイムアウト時間を秒で指定", type=int, default=c.TIMEOUT)
     parser.add_argument('--nocolor', help="色付き出力を無効化", action='store_true')
+    parser.add_argument('--overwrite', help="結果フォルダの上書きを許可", action='store_true')
     args = parser.parse_args()
     c.DEBUG = args.debug
     c.SRC_PATH = args.src
@@ -326,12 +325,14 @@ def chkarg():
     c.TEMP_PATH = args.temp
     c.TIMEOUT = args.timeout
     c.NOCOLOR = args.nocolor
+    c.OVERWRITE = args.overwrite
     c.debug(f"Source: {c.SRC_PATH}", "chkarg")
     c.debug(f"Work: {c.WORK_PATH}", "chkarg")
     c.debug(f"Case: {c.CASE_PATH}", "chkarg")
     c.debug(f"Result: {c.RESULT_PATH}", "chkarg")
     c.debug(f"Temp: {c.TEMP_PATH}", "chkarg")
     c.debug(f"タイムアウト: {c.TIMEOUT}s", "chkarg")
+    c.debug(f"Result上書き: {c.OVERWRITE}", "chkarg")
 
 
 def src_listgen():
