@@ -13,6 +13,7 @@ CASE_PATH = "case\\"
 RESULT_PATH = "result\\"
 TEMP_PATH = "temp\\"
 TIMEOUT = 5
+TIMEOUT_CALC_RATIO = 1
 NOCOLOR = False
 OVERWRITE= False
 INDENT = 2

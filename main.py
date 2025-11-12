@@ -4,12 +4,14 @@ import re
 import difflib
 import argparse
 import shutil
+from concurrent.futures import ThreadPoolExecutor, TimeoutError
 
 import common as c
 import xl
 
 
 srclist: list[str] = []
+executor = ThreadPoolExecutor(max_workers=1)
 
 
 def main():
@@ -29,6 +31,7 @@ def main():
     print("結果をxlsxファイルに書き込み中...")
     xl.write_xl(students)
     write_untouched()
+    os._exit(0)
 
 
 def write_untouched():
@@ -179,13 +182,26 @@ def run_exe(exe: str, case_num: int,
         run_result.stdout = stdout_str
     else:
         run_result.stdout = stdout_str
-        run_result.ratio = round(difflib.SequenceMatcher(None, stdout_str, testcase.stdout, False).ratio(), 3)
+        run_result.ratio = get_ratio(stdout_str, testcase.stdout)
         if run_result.stdout == testcase.stdout:
             run_result.result = c.RunResultState.OK
         else:
             run_result.result = c.RunResultState.NG
             run_result.reason = "ﾃｽﾄｹｰｽと不一致"
     return run_result
+
+
+def get_ratio(a, b):
+    future = executor.submit(compute_ratio, a, b)
+    try:
+        return future.result(timeout=c.TIMEOUT_CALC_RATIO)
+    except TimeoutError:
+        c.debug("一致率計算タイムアウト", "get_ratio")
+        return None
+
+
+def compute_ratio(a, b):
+    return round(difflib.SequenceMatcher(None, a, b, False).ratio(), 3)
 
 
 def print_score(student: c.Student, progress):
@@ -348,6 +364,7 @@ def chkarg():
     parser.add_argument('--result', help="結果の格納先を指定", type=str, default=c.RESULT_PATH)
     parser.add_argument('--temp', help="一時ファイル格納先を指定", type=str, default=c.TEMP_PATH)
     parser.add_argument('--timeout', help="1プログラム当たりのタイムアウト時間を秒で指定", type=int, default=c.TIMEOUT)
+    parser.add_argument('--ratio_timeout', help="一致率計算のタイムアウトを秒で指定", type=int, default=c.TIMEOUT_CALC_RATIO)
     parser.add_argument('--nocolor', help="色付き出力を無効化", action='store_true')
     parser.add_argument('--overwrite', help="結果フォルダの上書きを許可", action='store_true')
     args = parser.parse_args()
@@ -358,6 +375,7 @@ def chkarg():
     c.RESULT_PATH = args.result
     c.TEMP_PATH = args.temp
     c.TIMEOUT = args.timeout
+    c.TIMEOUT_CALC_RATIO = args.ratio_timeout
     c.NOCOLOR = args.nocolor
     c.OVERWRITE = args.overwrite
     c.debug(f"Source: {c.SRC_PATH}", "chkarg")
@@ -366,6 +384,7 @@ def chkarg():
     c.debug(f"Result: {c.RESULT_PATH}", "chkarg")
     c.debug(f"Temp: {c.TEMP_PATH}", "chkarg")
     c.debug(f"タイムアウト: {c.TIMEOUT}s", "chkarg")
+    c.debug(f"一致率計算タイムアウト: {c.TIMEOUT_CALC_RATIO}s", "chkarg")
     c.debug(f"Result上書き: {c.OVERWRITE}", "chkarg")
 
 

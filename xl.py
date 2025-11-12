@@ -55,8 +55,13 @@ def write_xl(students: list[c.Student]):
                         )
                 ws["G" + str(row)].alignment = Alignment(horizontal = "center")
                 ws["H" + str(row)].value = valconv(run_result.reason, str, none="")
-                ws["I" + str(row)].value = valconv(run_result.ratio, float, none="")
-                ws["I" + str(row)].number_format = "0.000"
+                if run_result.ratio is None and (
+                    run_result.result == c.RunResultState.OK or run_result.result == c.RunResultState.NG):
+                    # 一致率計算がタイムアウトした場合
+                    ws["I" + str(row)].value = "ﾀｲﾑｱｳﾄ"
+                else:
+                    ws["I" + str(row)].value = valconv(run_result.ratio, float, none="")
+                    ws["I" + str(row)].number_format = "0.000"
                 ws["J" + str(row)].value = str_escape(run_result.stdout)
                 row += 1
     # 全体的な設定
