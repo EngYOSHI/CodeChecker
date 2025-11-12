@@ -68,7 +68,7 @@ class Task:
         if self.testcases is None:
             s += str_indent("コンパイルのみ\n", offset + 1)
         else:
-            for i, testcase in enumerate(self.testcases):
+            for i, testcase in enumerate(self.testcases, 1):
                 s += str_indent(f"[{i}]: {testcase.content()}\n", offset + 1)
         return s.rstrip("\n")
 

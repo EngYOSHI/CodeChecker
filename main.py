@@ -69,7 +69,7 @@ def eval(student_number: str, task: c.Task) -> c.TaskResult:
             c.debug("コンパイルのみ", "eval")
         else:
             c.debug("", "run_loop")
-            for i, run_result in enumerate(task_result.run_results):
+            for i, run_result in enumerate(task_result.run_results, 1):
                 c.debug(f"  [{i}] {run_result.content()}")
         mv_temp2bin(current_process + ".exe")  # 実行が終わったバイナリはbinフォルダへ移動
     return task_result
@@ -180,7 +180,7 @@ def print_score(student: c.Student, progress):
                 failed = 0
                 skip = 0
                 unrated = 0
-                for i, run_result in enumerate(run_results):
+                for i, run_result in enumerate(run_results, 1):
                     output += c.str_indent(f"[{i}] -> Result: {run_result_to_str(run_result.result)}", 2)
                     if run_result.result == c.RunResultState.SKIP:
                         skip += 1
@@ -268,11 +268,11 @@ def get_tasklist(filename) -> list[c.Task]:
 
 def read_casefiles(tasknumber: str, case_num: int) -> list[c.Testcase]:
     testcases: list[c.Testcase] = []
-    for i in range(case_num):
+    for i in range(1, case_num + 1):
         testcase = c.Testcase()
-        file_arg = os.path.join(c.CASE_PATH, tasknumber + "_" + str(i) + "_arg.txt")
-        file_out = os.path.join(c.CASE_PATH, tasknumber + "_" + str(i) + "_out.txt")
-        file_in = os.path.join(c.CASE_PATH, tasknumber + "_" + str(i) + "_in.txt")
+        file_arg = os.path.join(c.CASE_PATH, f"{tasknumber}_{i}_arg.txt")
+        file_out = os.path.join(c.CASE_PATH, f"{tasknumber}_{i}_out.txt")
+        file_in = os.path.join(c.CASE_PATH, f"{tasknumber}_{i}_in.txt")
         if os.path.isfile(file_arg):
             testcase.arg = c.file2list(file_arg)[0]  # 1行目だけ
         if os.path.isfile(file_out):
