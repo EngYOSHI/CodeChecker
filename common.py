@@ -40,7 +40,8 @@ class RunResultState(str, Enum):
     OK = "OK"
     NG = "NG"
     SKIP = "SKIP"
-    UNRATED = "??"  # 出力がエンコードエラー等により未評価
+    NOTEST = "NOTEST"  # コンパイルのみ
+    ENCERR = "ENCERR"  # 出力がエンコードエラー等により未評価
 
 
 class Testcase:
@@ -99,7 +100,7 @@ class RunResult:
 class TaskResult:
     tasknumber: str  # 課題番号
     compile_result: CompileResult
-    run_results: list[RunResult] | None = None  # コンパイルエラー等でテスト実行しないならNone
+    run_results: list[RunResult] | None = None  # コンパイルエラーならNone
 
     def __init__(self, tasknumber: str):
         self.tasknumber = tasknumber

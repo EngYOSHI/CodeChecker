@@ -33,25 +33,25 @@ def write_xl(students: list[c.Student]):
     row = 2
     for student in students:
         for task in student.task_results:
-            ws["A" + str(row)].value = student.student_number
-            ws["B" + str(row)].value = task.tasknumber
-            ws["C" + str(row)].value = valconv(task.compile_result.result, bool, "OK", "NG")
-            cellfill(ws["C" + str(row)], [("OK", "00b050"),("NG", "e09694")])
-            ws["C" + str(row)].alignment = Alignment(horizontal = "center")
-            ws["D" + str(row)].value = valconv(task.compile_result.reason, str, none="")
-            ws["E" + str(row)].value = task.compile_result.stdout
             if task.run_results is None:
+                # コンパイルエラーの場合
+                write_common(ws, row, student.student_number, task.tasknumber,
+                             task.compile_result.result, task.compile_result.reason,
+                             task.compile_result.stdout)
                 row += 1
                 continue
-            for i, run_result in enumerate(task.run_results):
-                ws["F" + str(row)].value = task.tasknumber + f" [{str(i + 1)}]"
+            for i, run_result in enumerate(task.run_results, 1):
+                write_common(ws, row, student.student_number, task.tasknumber,
+                            task.compile_result.result, task.compile_result.reason,
+                            task.compile_result.stdout)
+                ws["F" + str(row)].value = task.tasknumber + f" [{str(i)}]"
                 ws["G" + str(row)].value = run_result.result.value
                 cellfill(ws["G" + str(row)],
                          [(c.RunResultState.OK, "00b050"),
                           (c.RunResultState.NG, "e09694"),
                           (c.RunResultState.SKIP, "c5d9f1"),
-                          (c.
-                          RunResultState.UNRATED, "a2a2a2")]
+                          (c.RunResultState.ENCERR, "a2a2a2"),
+                          (c.RunResultState.NOTEST, "a2a2a2")]
                         )
                 ws["G" + str(row)].alignment = Alignment(horizontal = "center")
                 ws["H" + str(row)].value = valconv(run_result.reason, str, none="")
@@ -71,6 +71,17 @@ def write_xl(students: list[c.Student]):
                 row += 1
     path = os.path.join(c.RESULT_PATH, "result.xlsx")
     wb.save(path)
+
+
+def write_common(ws, row: int, student_number: str, task_number: str,
+                 compile_result: bool, compile_reason: str | None, compile_stdout: str):
+    ws["A" + str(row)].value = student_number
+    ws["B" + str(row)].value = task_number
+    ws["C" + str(row)].value = valconv(compile_result, bool, "OK", "NG")
+    cellfill(ws["C" + str(row)], [("OK", "00b050"),("NG", "e09694")])
+    ws["C" + str(row)].alignment = Alignment(horizontal = "center")
+    ws["D" + str(row)].value = valconv(compile_reason, str, none="")
+    ws["E" + str(row)].value = compile_stdout
 
 
 def valconv(data, type, str_true = "True", str_false = "False", none = "None"):

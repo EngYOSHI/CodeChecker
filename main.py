@@ -122,12 +122,17 @@ def compile(src_filename: str | None, exe_filename: str) -> c.CompileResult:
     return compile_result
 
 
-def run_loop(exe: str, task: c.Task) -> list[c.RunResult] | None:
-    if task.testcases is None:
-        return None  # コンパイルのみの場合はNone
+def run_loop(exe: str, task: c.Task) -> list[c.RunResult]:
     run_results: list[c.RunResult] = []
-    for case_num, testcase in enumerate(task.testcases, start = 0):
-        run_results.append(run_exe(exe, case_num, testcase))
+    if task.testcases is None:
+        # コンパイルのみの場合
+        run_result = c.RunResult()
+        run_result.result = c.RunResultState.NOTEST
+        run_result.reason = "ﾃｽﾄｹｰｽなし"
+        run_results.append(run_result)
+    else:
+        for case_num, testcase in enumerate(task.testcases, start = 0):
+            run_results.append(run_exe(exe, case_num, testcase))
     return run_results
 
 
@@ -153,10 +158,11 @@ def run_exe(exe: str, case_num: int, testcase: c.Testcase) -> c.RunResult:
     (stdout_str, stdout_encode) = c.byte2str(r[0])  # 標準出力のバイトストリームを文字列に変換
     c.debug(f"Encode of stdout[{case_num}]: {stdout_encode.value}", "run_exe")
     if stdout_encode == c.Encode.ERROR:
-        run_result.result = c.RunResultState.UNRATED
+        run_result.result = c.RunResultState.ENCERR
         run_result.reason = "未サポートｴﾝｺｰﾄﾞ"
     elif testcase.stdout is None:
         run_result.result = c.RunResultState.SKIP
+        run_result.stdout = stdout_str
     else:
         run_result.stdout = stdout_str
         run_result.ratio = round(difflib.SequenceMatcher(None, stdout_str, testcase.stdout, False).ratio(), 3)
@@ -179,25 +185,26 @@ def print_score(student: c.Student, progress):
                 correct = 0
                 failed = 0
                 skip = 0
-                unrated = 0
+                encerr = 0
+                notest = 0
                 for i, run_result in enumerate(run_results, 1):
-                    output += c.str_indent(f"[{i}] -> Result: {run_result_to_str(run_result.result)}", 2)
+                    output += c.str_indent(f"[{i}] -> 結果: {run_result_to_str(run_result.result)}", 3)
                     if run_result.result == c.RunResultState.SKIP:
                         skip += 1
+                    elif run_result.result == c.RunResultState.NOTEST:
+                        notest += 1
                     elif run_result.result == c.RunResultState.OK:
                         correct += 1
                     elif run_result.result == c.RunResultState.NG:
                         failed += 1
-                        if run_result.reason is not None:
-                            output += f" (理由: {run_result.reason})"
-                        if run_result.ratio is not None:
-                            output += f" (一致率: {run_result.ratio})"
-                    elif run_result.result == c.RunResultState.UNRATED:
-                        unrated += 1
-                        if run_result.reason is not None:
-                            output += f" (理由: {run_result.reason})"
+                    elif run_result.result == c.RunResultState.ENCERR:
+                        encerr += 1
+                    if run_result.reason is not None:
+                        output += f" (理由: {run_result.reason})"
+                    if run_result.ratio is not None:
+                        output += f" (一致率: {run_result.ratio})"
                     output += "\n"
-                output += c.str_indent(f"Summary: {correct}/{correct + failed + unrated}  (skip:{skip}, unrated:{unrated})\n", 2)
+                output += c.str_indent(f"サマリ: {correct}/{correct + failed + encerr}  (スキップ:{skip}, 未評価:{notest + encerr})\n", 2)
         else:
             # コンパイル失敗時
             if task_result.compile_result.reason is not None:
@@ -256,17 +263,19 @@ def chkpath():
 def get_tasklist(filename) -> list[c.Task]:
     taskfiles = c.file2list(filename)
     tasks: list[c.Task] = []
-    for i in range(len(taskfiles)):
-        if re.fullmatch(r'[1-9][0-9]*-((A[1-9])|([1-9][a-z]*)) [1-9]', taskfiles[i]):
-            temp = taskfiles[i].split(" ")
-            testcases: list[c.Testcase] = read_casefiles(temp[0], int(temp[1]))
+    for taskfile in taskfiles:
+        if re.fullmatch(r'[1-9][0-9]*-((A[1-9])|([1-9][a-z]*)) [0-9]', taskfile):
+            temp = taskfile.split(" ")
+            testcases = read_casefiles(temp[0], int(temp[1]))
             tasks.append(c.Task(temp[0], testcases))
         else:
             c.error("'tasks.txt'の構文エラー")
     return tasks
 
 
-def read_casefiles(tasknumber: str, case_num: int) -> list[c.Testcase]:
+def read_casefiles(tasknumber: str, case_num: int) -> list[c.Testcase] | None:
+    if case_num == 0:
+        return None
     testcases: list[c.Testcase] = []
     for i in range(1, case_num + 1):
         testcase = c.Testcase()
@@ -299,7 +308,9 @@ def run_result_to_str(res: c.RunResultState) -> str:
         return c.str_color(c.Color.BG_RED, res)
     elif res == c.RunResultState.SKIP:
         return c.str_color(c.Color.BG_CYAN, res)
-    elif res == c.RunResultState.UNRATED:
+    elif res == c.RunResultState.ENCERR:
+        return c.str_color(c.Color.BG_LIGHTGRAY, res)
+    elif res == c.RunResultState.NOTEST:
         return c.str_color(c.Color.BG_LIGHTGRAY, res)
     else:
         return res
