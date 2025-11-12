@@ -13,7 +13,7 @@ CASE_PATH = "case\\"
 RESULT_PATH = "result\\"
 TEMP_PATH = "temp\\"
 TIMEOUT = 5
-TIMEOUT_CALC_RATIO = 3
+TIMEOUT_CALC_RATIO = 5
 NOCOLOR = False
 OVERWRITE= False
 INDENT = 2
@@ -47,7 +47,7 @@ class RunResultState(str, Enum):
 
 class Testcase:
     # stdoutがNoneの場合は実行だけ行い比較はしない（スキップ）
-    arg: str | None = None
+    arg: list[str] | None = None
     stdout: str | None = None
     stdin: str | None = None
 

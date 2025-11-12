@@ -143,12 +143,12 @@ def run_loop(exe: str, task: c.Task) -> list[c.RunResult]:
 
 def run_exe(exe: str, case_num: int,
             testcase: c.Testcase, outfile: None | str) -> c.RunResult:
-    cmd = exe
+    cmd = [os.path.join(c.TEMP_PATH, exe)]
     if testcase.arg is not None:
-        c.debug(testcase.arg, "arg")
-        cmd = cmd + " " + testcase.arg
+        cmd += testcase.arg
     run_result = c.RunResult()
-    proc = subprocess.Popen(cmd, cwd=c.TEMP_PATH, stdout=subprocess.PIPE, stdin=subprocess.PIPE, shell=True)
+    c.debug(f"arg: {cmd}", "run_exe")
+    proc = subprocess.Popen(cmd, cwd=c.TEMP_PATH, stdout=subprocess.PIPE, stdin=subprocess.PIPE)
     try:
         if testcase.stdin is None:
             r = proc.communicate(timeout=c.TIMEOUT)
@@ -329,7 +329,7 @@ def read_casefiles(tasknumber: str, case_num: int) -> list[c.Testcase] | None:
         file_out = os.path.join(c.CASE_PATH, f"{tasknumber}_{i}_out.txt")
         file_in = os.path.join(c.CASE_PATH, f"{tasknumber}_{i}_in.txt")
         if os.path.isfile(file_arg):
-            (testcase.arg, _) = c.file2list(file_arg, True)[0]  # 1行目だけ
+            testcase.arg = c.file2list(file_arg, True)[0]
         if os.path.isfile(file_out):
             (testcase.stdout, _) = c.file2str(file_out, True)
         if os.path.isfile(file_in):
