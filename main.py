@@ -135,7 +135,7 @@ def run_loop(exe: str, task: c.Task) -> list[c.RunResult]:
         # コンパイルのみの場合
         run_result = c.RunResult()
         run_result.result = c.RunResultState.NOTEST
-        run_result.reason = "ﾃｽﾄｹｰｽなし"
+        run_result.reason = c.RunResultReason.NO_TESTCASE
         run_results.append(run_result)
     else:
         for case_num, testcase in enumerate(task.testcases):
@@ -164,7 +164,7 @@ def run_exe(exe: str, case_num: int,
         proc.kill()
         c.debug(c.str_indent("タイムアウト", 1))
         run_result.result = c.RunResultState.NG
-        run_result.reason = "タイムアウト"
+        run_result.reason = c.RunResultReason.TIMEOUT
         return run_result
     c.debug(c.str_indent(f"Mode: {testcase.out_type.value}", 1))
     if testcase.out_type == c.OutType.FILE:
@@ -175,7 +175,7 @@ def run_exe(exe: str, case_num: int,
             filepath = os.path.join(c.TEMP_PATH, outfile)
             if not os.path.isfile(filepath):
                 run_result.result = c.RunResultState.NG
-                run_result.reason = "出力ﾌｧｲﾙ名間違いorなし"
+                run_result.reason = c.RunResultReason.OUTFILE_ERROR
                 return run_result
             (str_out, str_out_encode) = c.file2str(filepath)  # ファイルを読み込んで文字列に変換
     elif testcase.out_type == c.OutType.STDERR:
@@ -187,7 +187,7 @@ def run_exe(exe: str, case_num: int,
     c.debug(c.str_indent(f"Encode of output: {str_out_encode.value}", 1))
     if str_out_encode == c.Encode.ERROR:
         run_result.result = c.RunResultState.ENCERR
-        run_result.reason = "未サポートｴﾝｺｰﾄﾞ"
+        run_result.reason = c.RunResultReason.ENCODE_ERROR
     elif testcase.str_out is None:
         run_result.result = c.RunResultState.SKIP
         run_result.str_out = str_out
@@ -199,7 +199,7 @@ def run_exe(exe: str, case_num: int,
         else:
             run_result.result = c.RunResultState.NG
             run_result.ratio = get_ratio(str_out, testcase.str_out)
-            run_result.reason = "ﾃｽﾄｹｰｽと不一致"
+            run_result.reason = c.RunResultReason.WRONG
     return run_result
 
 
@@ -241,7 +241,7 @@ def print_score(student: c.Student, progress):
                 for i, run_result in enumerate(run_results, 1):
                     output += c.str_indent(f"[{i}] -> 結果: {run_result_to_str(run_result.result)}", 3)
                     if run_result.reason is not None:
-                        output += f" (理由: {run_result.reason})"
+                        output += f" (理由: {run_result.reason.value})"
                     if run_result.result == c.RunResultState.SKIP:
                         skip += 1
                     elif run_result.result == c.RunResultState.NOTEST:

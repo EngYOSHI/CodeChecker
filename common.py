@@ -52,6 +52,14 @@ class OutType(str, Enum):
     FILE = "file"
 
 
+class RunResultReason(str, Enum):
+    NO_TESTCASE = "ﾃｽﾄｹｰｽなし"
+    TIMEOUT = "タイムアウト"
+    OUTFILE_ERROR = "出力ﾌｧｲﾙ名間違いorなし"
+    ENCODE_ERROR = "未サポートｴﾝｺｰﾄﾞ"
+    WRONG = "ﾃｽﾄｹｰｽと不一致"
+
+
 class TaskDeclare:
     kadai_number: str
     testcase_num: int
@@ -116,13 +124,14 @@ class CompileResult:
 
 class RunResult:
     result: RunResultState = RunResultState.SKIP  # テスト結果がテストケースと一致時OK，テスト失敗時NG，スキップ時SKIP
-    reason: str | None = None  # テスト失敗時はその理由．テスト成功時はNone
+    reason: RunResultReason | None = None  # テスト失敗時はその理由．テスト成功時はNone
     str_out: str | None = None  # 実行時の標準出力．実行失敗時や未実行時はNone
     ratio: float | None = None  # 一致率．実行成功時で計算がタイムアウトせず完了したら値が入る
 
     def content(self, offset: int = 0, cut: int = -1) -> str:
+        reason = "None" if self.reason is None else self.reason.value
         return str_indent(
-            f"result: {self.result.value}, reason: {self.reason},"
+            f"result: {self.result.value}, reason: {reason},"
             f" str_out: {str_cut(repr(self.str_out), cut)}, ratio: {self.ratio}",
             offset)
 
