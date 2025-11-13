@@ -5,6 +5,7 @@ import difflib
 import argparse
 import shutil
 import multiprocessing
+import shlex
 
 import common as c
 import xl
@@ -165,16 +166,19 @@ def run_exe(exe: str, case_num: int,
         run_result.result = c.RunResultState.NG
         run_result.reason = "タイムアウト"
         return run_result
-    c.debug(c.str_indent(f"Mode: {testcase.check_type.value}", 1))
-    if outfile is not None and testcase.check_type == c.CheckType.FILE:
+    c.debug(c.str_indent(f"Mode: {testcase.out_type.value}", 1))
+    if testcase.out_type == c.OutType.FILE:
         # ファイル出力をチェック
-        filepath = os.path.join(c.TEMP_PATH, outfile)
-        if not os.path.isfile(filepath):
-            run_result.result = c.RunResultState.NG
-            run_result.reason = "出力ﾌｧｲﾙ名間違いorなし"
-            return run_result
-        (str_out, str_out_encode) = c.file2str(filepath)  # ファイルを読み込んで文字列に変換
-    elif testcase.check_type == c.CheckType.STDERR:
+        if outfile is None:
+            c.error("内部エラー: outfile should not be None.")
+        else:
+            filepath = os.path.join(c.TEMP_PATH, outfile)
+            if not os.path.isfile(filepath):
+                run_result.result = c.RunResultState.NG
+                run_result.reason = "出力ﾌｧｲﾙ名間違いorなし"
+                return run_result
+            (str_out, str_out_encode) = c.file2str(filepath)  # ファイルを読み込んで文字列に変換
+    elif testcase.out_type == c.OutType.STDERR:
         # stderrをチェック
         (str_out, str_out_encode) = c.byte2str(r[1])  # エラー出力のバイトストリームを文字列に変換
     else:
@@ -184,7 +188,7 @@ def run_exe(exe: str, case_num: int,
     if str_out_encode == c.Encode.ERROR:
         run_result.result = c.RunResultState.ENCERR
         run_result.reason = "未サポートｴﾝｺｰﾄﾞ"
-    elif testcase.check_type == c.CheckType.SKIP or testcase.str_out is None:
+    elif testcase.str_out is None:
         run_result.result = c.RunResultState.SKIP
         run_result.str_out = str_out
     else:
@@ -310,28 +314,56 @@ def chkpath():
 def get_tasklist(filename) -> list[c.Task]:
     (taskfiles, _) = c.file2list(filename, True)
     tasks: list[c.Task] = []
-    pattern = re.compile(
-            r"(?P<kadai_number>[1-9][0-9]*-(?:A[1-9]|[1-9][a-z]*))"
-            r" (?P<testcase_num>[0-9])"
-            r"( outfile=\"(?P<outfile>[^\"]+)\")?"
-        )
     for taskfile in taskfiles:
-        match = pattern.fullmatch(taskfile)
-        if match:
-            kadai_number = match["kadai_number"]
-            testcase_num = int(match["testcase_num"])
-            outfile: str | None = match["outfile"]
-            outfile_enable = True if outfile is not None else False
-            testcases = read_casefiles(
-                kadai_number, testcase_num, outfile_enable)
-            tasks.append(c.Task(kadai_number, testcases, outfile))
-        else:
-            c.error("'tasks.txt'の構文エラー")
+        task_declare = parse_tasklist(taskfile)
+        testcases = read_casefiles(task_declare)
+        tasks.append(c.Task(task_declare.kadai_number,
+                            testcases, task_declare.outfile))
     return tasks
 
 
-def read_casefiles(tasknumber: str, case_num: int,
-                   outfile_enable: bool) -> list[c.Testcase] | None:
+def parse_tasklist(s: str) -> c.TaskDeclare:
+    p_skip = re.compile(r"skip(?P<skip_num>[0-9])=(?P<skip_val>.+)")
+    skip_type: list[str] = [member.value for member in c.OutType]
+    def getval(s: str):
+        return s.split("=", 1)[1]
+
+    def skip(part: str) -> bool:
+        match = p_skip.fullmatch(part)
+        if match:
+            skip_num = int(match["skip_num"])
+            if skip_num in task_declare.skip:
+                c.error(f"tasks.txt: skip{skip_num}が複数回指定されています．")
+            if match["skip_val"] in skip_type:
+                task_declare.skip[skip_num] = c.OutType(match["skip_val"])
+            else:
+                c.error(f"tasks.txt: skipは{skip_type}のどれかである必要があります．")
+            return True
+        else:
+            return False
+
+    parts = shlex.split(s)
+    if not re.fullmatch(r"[1-9][0-9]*-(?:A[1-9]|[1-9][a-z]?)", parts[0]):
+        c.error(f"tasks.txt: 課題番号に構文エラー  ({parts[0]})")
+    elif not re.fullmatch(r"[0-9]", parts[1]):
+        c.error(f"tasks.txt: テストケース数に構文エラー  ({parts[1]})")
+    task_declare = c.TaskDeclare(parts[0], int(parts[1]))
+    for part in parts[2:]:
+        if part.startswith("outfile="):
+            if task_declare.outfile is not None:
+                task_declare.outfile = getval(part)
+            else:
+                c.error(f"tasks.txt: outfileは複数指定できません．")
+        elif skip(part):
+            continue
+        else:
+            c.error(f"tasks.txt: 構文エラー  (\"{part}\"付近)")
+    return task_declare
+
+
+def read_casefiles(task_declare: c.TaskDeclare) -> list[c.Testcase] | None:
+    case_num = task_declare.testcase_num
+    tasknumber = task_declare.kadai_number
     if case_num == 0:
         return None
     testcases: list[c.Testcase] = []
@@ -344,17 +376,21 @@ def read_casefiles(tasknumber: str, case_num: int,
         file_in = os.path.join(c.CASE_PATH, f"{tasknumber}_{i}_in.txt")
         if os.path.isfile(file_arg):
             testcase.arg = c.file2list(file_arg, True)[0]
-        if os.path.isfile(file_fout):
-            if not outfile_enable:
+        if i in task_declare.skip:
+            testcase.out_type = task_declare.skip[i]
+        elif os.path.isfile(file_fout):
+            if not task_declare.outfile is None:
                 c.error(f"ファイル出力のチェックが無効なのに，foutが指定されています．（{tasknumber}_{i}_fout.txt）")
             (testcase.str_out, _) = c.file2str(file_fout, True)
-            testcase.check_type = c.CheckType.FILE
+            testcase.out_type = c.OutType.FILE
         elif os.path.isfile(file_eout):
             (testcase.str_out, _) = c.file2str(file_eout, True)
-            testcase.check_type = c.CheckType.STDERR
+            testcase.out_type = c.OutType.STDERR
         elif os.path.isfile(file_out):
             (testcase.str_out, _) = c.file2str(file_out, True)
-            testcase.check_type = c.CheckType.STDOUT
+            testcase.out_type = c.OutType.STDOUT
+        else:
+            c.error(f"{tasknumber}[{i}]はSKIP指定でない，かつ，出力のテストパタンがありません．")
         if os.path.isfile(file_in):
             (testcase.str_in, _) = c.file2str(file_in, True)
         testcases.append(testcase)

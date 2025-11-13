@@ -46,23 +46,34 @@ class RunResultState(str, Enum):
     ENCERR = "ENCERR"  # 出力がエンコードエラー等により未評価
 
 
-class CheckType(str, Enum):
-    SKIP = "skip"
+class OutType(str, Enum):
     STDOUT = "stdout"
     STDERR = "stderr"
     FILE = "file"
 
 
+class TaskDeclare:
+    kadai_number: str
+    testcase_num: int
+    outfile: str | None = None
+    skip: dict[int, OutType]
+
+    def __init__(self, kadai_number: str, testcase_num: int):
+        self.kadai_number = kadai_number
+        self.testcase_num = testcase_num
+        self.skip = {}
+
+
 class Testcase:
-    # check_typeがSKIPの場合は実行だけ行い比較はしない（スキップ）
+    # str_outがNoneの場合は実行だけ行い比較はしない（スキップ）
     arg: list[str] | None = None
-    check_type: CheckType = CheckType.SKIP
+    out_type: OutType
     str_out: str | None = None
     str_in: str | None = None
 
     def content(self, offset: int = 0, cut: int = -1) -> str:
         return str_indent(
-            f"arg: {self.arg}, CheckType: {self.check_type.value},"
+            f"arg: {self.arg}, OutType: {self.out_type.value},"
             f" str_out: {str_cut(repr(self.str_out), cut)},"
             f" str_in: {str_cut(repr(self.str_in), cut)}",
             offset)

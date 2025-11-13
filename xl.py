@@ -65,7 +65,7 @@ def write_xl(students: list[c.Student]):
                     ws["I" + str(row)].value = valconv(run_result.ratio, float, none="")
                     ws["I" + str(row)].number_format = "0.000"
                 if task.testcases is not None:
-                    ws["J" + str(row)].value = task.testcases[testcase_number].check_type.value
+                    ws["J" + str(row)].value = task.testcases[testcase_number].out_type.value
                 ws["K" + str(row)].value = str_escape(run_result.str_out)
                 row += 1
     # 全体的な設定
