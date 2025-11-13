@@ -232,3 +232,11 @@ def get_fileenc(filename: str) -> Encode:
         b = f.read()
         (_, enc) = byte2str(b)
     return enc
+
+
+def get_filelist(dir: str) -> list[str]:
+    """dirに入っているファイルのファイル名をlist[str]でsrclistに返す"""
+    li = [
+        f for f in os.listdir(dir) if os.path.isfile(os.path.join(dir, f))
+    ]
+    return li

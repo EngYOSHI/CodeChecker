@@ -14,6 +14,7 @@ srclist: list[str] = []
 
 
 def main():
+    global srclist
     (student_numbers, _) = c.file2list(os.path.join(c.CASE_PATH, "students.txt"), True)
     print("学生数: " + str(len(student_numbers)))
     c.debug(str(student_numbers))
@@ -21,7 +22,7 @@ def main():
     print("課題数: " + str(len(tasks)))
     for task in tasks:
         c.debug(task.content())
-    src_listgen()
+    srclist = c.get_filelist(c.SRC_PATH)
     print("ソースファイル数: " + str(len(srclist)))
     c.debug(str(srclist))
     students:list[c.Student] = eval_loop(student_numbers, tasks)
@@ -306,7 +307,7 @@ def get_tasklist(filename) -> list[c.Task]:
             r"( outfile=\"(?P<outfile>[^\"]+)\")?"
         )
     for taskfile in taskfiles:
-        match = re.fullmatch(pattern, taskfile)
+        match = pattern.fullmatch(taskfile)
         if match:
             kadai_number = match["kadai_number"]
             testcase_num = int(match["testcase_num"])
@@ -393,14 +394,6 @@ def chkarg():
     c.debug(f"タイムアウト: {c.TIMEOUT}s", "chkarg")
     c.debug(f"一致率計算タイムアウト: {c.TIMEOUT_CALC_RATIO}s", "chkarg")
     c.debug(f"Result上書き: {c.OVERWRITE}", "chkarg")
-
-
-def src_listgen():
-    global srclist
-    # SRC_PATHに入っているファイルのファイル名をlist[str]でsrclistに返す
-    srclist = [
-        f for f in os.listdir(c.SRC_PATH) if os.path.isfile(os.path.join(c.SRC_PATH, f))
-    ]
 
 
 if __name__ == "__main__":
