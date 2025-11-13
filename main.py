@@ -189,11 +189,12 @@ def run_exe(exe: str, case_num: int,
         run_result.str_out = str_out
     else:
         run_result.str_out = str_out
-        run_result.ratio = get_ratio(str_out, testcase.str_out)
         if run_result.str_out == testcase.str_out:
             run_result.result = c.RunResultState.OK
+            run_result.ratio = 1.0
         else:
             run_result.result = c.RunResultState.NG
+            run_result.ratio = get_ratio(str_out, testcase.str_out)
             run_result.reason = "ﾃｽﾄｹｰｽと不一致"
     return run_result
 
