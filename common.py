@@ -45,15 +45,23 @@ class RunResultState(str, Enum):
     ENCERR = "ENCERR"  # 出力がエンコードエラー等により未評価
 
 
+class CheckType(str, Enum):
+    SKIP = "skip"
+    STDOUT = "stdout"
+    STDERR = "stderr"
+    FILE = "file"
+
+
 class Testcase:
-    # stdoutがNoneの場合は実行だけ行い比較はしない（スキップ）
+    # check_typeがSKIPの場合は実行だけ行い比較はしない（スキップ）
     arg: list[str] | None = None
-    stdout: str | None = None
-    stdin: str | None = None
+    check_type: CheckType = CheckType.SKIP
+    str_out: str | None = None
+    str_in: str | None = None
 
     def content(self, offset: int = 0) -> str:
         return str_indent(
-            f"arg: {self.arg}, stdout: {repr(self.stdout)}, stdin: {repr(self.stdin)}",
+            f"arg: {self.arg}, CheckType: {self.check_type.value}, str_out: {repr(self.str_out)}, str_in: {repr(self.str_in)}",
             offset)
 
 
@@ -94,25 +102,25 @@ class CompileResult:
 class RunResult:
     result: RunResultState = RunResultState.SKIP  # テスト結果がテストケースと一致時OK，テスト失敗時NG，スキップ時SKIP
     reason: str | None = None  # テスト失敗時はその理由．テスト成功時はNone
-    stdout: str | None = None  # 実行時の標準出力．実行失敗時はNone
-    ratio: float | None = None  # 一致率
+    str_out: str | None = None  # 実行時の標準出力．実行失敗時や未実行時はNone
+    ratio: float | None = None  # 一致率．実行成功時で計算がタイムアウトせず完了したら値が入る
 
     def content(self, offset: int = 0) -> str:
         return str_indent(
-            f"result: {self.result.value}, reason: {self.reason}, stdout: {repr(self.stdout)}, ratio: {self.ratio}",
+            f"result: {self.result.value}, reason: {self.reason}, str_out: {repr(self.str_out)}, ratio: {self.ratio}",
             offset)
 
 
 class TaskResult:
-    tasknumber: str  # 課題番号
+    task: Task
     compile_result: CompileResult
     run_results: list[RunResult] | None = None  # コンパイルエラーならNone
 
-    def __init__(self, tasknumber: str):
-        self.tasknumber = tasknumber
+    def __init__(self, task: Task):
+        self.task = task
 
     def content(self, offset: int = 0) -> str:
-        s = str_indent(f"課題番号: {self.tasknumber}\n", offset)
+        s = str_indent(f"課題番号: {self.task.tasknumber}\n", offset)
         s += str_indent(f"コンパイル結果: {self.compile_result.content()}\n", offset + 1)
         if self.run_results is not None:
             for i, run_result in enumerate(self.run_results):

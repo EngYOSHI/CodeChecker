@@ -15,7 +15,7 @@ def write_xl(students: list[c.Student]):
     wb.properties.lastModifiedBy = 'CodeChecker'
     ws = wb["Sheet"]
     ws.append(["学籍番号", "課題番号", "ｺﾝﾊﾟｲﾙ\n結果", "コンパイル備考", "コンパイルログ",
-               "ﾃｽﾄｹｰｽ", "テスト\n結果", "テスト結果備考", "ﾃｽﾄｹｰｽ\n一致率", "標準出力\nファイル出力"])
+               "ﾃｽﾄｹｰｽ", "テスト\n結果", "テスト結果備考", "ﾃｽﾄｹｰｽ\n一致率", "出力種類", "出力"])
     ws.row_dimensions[1].height = 27
     # 先頭行にスタイル適用
     for cell in ws[1]:
@@ -24,27 +24,29 @@ def write_xl(students: list[c.Student]):
         cell.font = Font(bold = True)
     # 列幅を設定
     column_width = {"A":11, "B":10, "C":10, "D":20, "E":20,
-                    "F":10, "G":10, "H":23, "I":10, "J":30}
+                    "F":10, "G":10, "H":23, "I":10, "J":10, "K":30}
     for column, width in column_width.items():
         ws.column_dimensions[column].width = width
     ws.freeze_panes = "A2" #先頭行を固定
-    ws.auto_filter.ref = "A1:J1"  # フィルタを設定
-    wraptext = ["D", "E", "H", "J"]
+    ws.auto_filter.ref = "A1:K1"  # フィルタを設定
+    wraptext = ["D", "E", "H", "K"]
     row = 2
     for student in students:
-        for task in student.task_results:
-            if task.run_results is None:
+        for task_results in student.task_results:
+            task = task_results.task
+            compile_result = task_results.compile_result
+            if task_results.run_results is None:
                 # コンパイルエラーの場合
                 write_common(ws, row, student.student_number, task.tasknumber,
-                             task.compile_result.result, task.compile_result.reason,
-                             task.compile_result.stdout)
+                             compile_result.result, compile_result.reason,
+                             compile_result.stdout)
                 row += 1
                 continue
-            for i, run_result in enumerate(task.run_results, 1):
+            for testcase_number, run_result in enumerate(task_results.run_results):
                 write_common(ws, row, student.student_number, task.tasknumber,
-                            task.compile_result.result, task.compile_result.reason,
-                            task.compile_result.stdout)
-                ws["F" + str(row)].value = task.tasknumber + f" [{str(i)}]"
+                            compile_result.result, compile_result.reason,
+                            compile_result.stdout)
+                ws["F" + str(row)].value = task.tasknumber + f" [{str(testcase_number + 1)}]"
                 ws["G" + str(row)].value = run_result.result.value
                 cellfill(ws["G" + str(row)],
                          [(c.RunResultState.OK, "00b050"),
@@ -62,7 +64,9 @@ def write_xl(students: list[c.Student]):
                 else:
                     ws["I" + str(row)].value = valconv(run_result.ratio, float, none="")
                     ws["I" + str(row)].number_format = "0.000"
-                ws["J" + str(row)].value = str_escape(run_result.stdout)
+                if task.testcases is not None:
+                    ws["J" + str(row)].value = task.testcases[testcase_number].check_type.value
+                ws["K" + str(row)].value = str_escape(run_result.str_out)
                 row += 1
     # 全体的な設定
     for row2 in range(2, row):

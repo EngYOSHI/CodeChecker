@@ -53,7 +53,7 @@ def eval_loop(student_numbers: list[str], tasks: list[c.Task]) -> list[c.Student
 
 
 def eval(student_number: str, task: c.Task) -> c.TaskResult:
-    task_result = c.TaskResult(task.tasknumber)
+    task_result = c.TaskResult(task)
     current_process = f"{student_number}_{task.tasknumber}"
     c.debug("")
     c.debug(current_process, "eval")
@@ -114,7 +114,8 @@ def compile(src_filename: str | None, exe_filename: str) -> c.CompileResult:
     enc = c.get_fileenc(src_abs)
     cmd = ["gcc.exe", f"-finput-charset={enc.value}", src_abs, "-o", exe_abs]
     c.debug(str(cmd), "compile")
-    r = subprocess.run(cmd, cwd=c.GCC_PATH, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,shell=True)
+    r = subprocess.run(cmd, cwd=c.GCC_PATH, stdout=subprocess.PIPE,
+                       stderr=subprocess.STDOUT, shell=True)
     (stdout_str, stdout_encode) = c.byte2str(r.stdout)
     c.debug(f"Encode of stdout: {stdout_encode.value}", "compile")
     compile_result.stdout = stdout_str
@@ -144,45 +145,52 @@ def run_loop(exe: str, task: c.Task) -> list[c.RunResult]:
 
 def run_exe(exe: str, case_num: int,
             testcase: c.Testcase, outfile: None | str) -> c.RunResult:
+    c.debug(f"[{case_num}]", "run_exe")
     cmd = [os.path.join(c.TEMP_PATH, exe)]
     if testcase.arg is not None:
         cmd += testcase.arg
     run_result = c.RunResult()
-    c.debug(f"arg: {cmd}", "run_exe")
-    proc = subprocess.Popen(cmd, cwd=c.TEMP_PATH, stdout=subprocess.PIPE, stdin=subprocess.PIPE)
+    c.debug(c.str_indent(f"arg: {cmd}", 1))
+    proc = subprocess.Popen(cmd, cwd=c.TEMP_PATH, stdout=subprocess.PIPE,
+                            stdin=subprocess.PIPE, stderr=subprocess.PIPE)
     try:
-        if testcase.stdin is None:
+        if testcase.str_in is None:
             r = proc.communicate(timeout=c.TIMEOUT)
         else:
-            r = proc.communicate(timeout=c.TIMEOUT, input=testcase.stdin.encode(c.Encode.SJIS))
+            r = proc.communicate(timeout=c.TIMEOUT, input=testcase.str_in.encode(c.Encode.SJIS))
     except subprocess.TimeoutExpired:
         #タイムアウト
         proc.kill()
-        c.debug("タイムアウト.", "run_exe")
+        c.debug(c.str_indent("タイムアウト", 1))
         run_result.result = c.RunResultState.NG
         run_result.reason = "タイムアウト"
         return run_result
-    if outfile is None:
-        (stdout_str, stdout_encode) = c.byte2str(r[0])  # 標準出力のバイトストリームを文字列に変換
-        c.debug(f"Encode of stdout[{case_num}]: {stdout_encode.value}", "run_exe")
-    else:
+    c.debug(c.str_indent(f"Mode: {testcase.check_type.value}", 1))
+    if outfile is not None and testcase.check_type == c.CheckType.FILE:
+        # ファイル出力をチェック
         filepath = os.path.join(c.TEMP_PATH, outfile)
         if not os.path.isfile(filepath):
             run_result.result = c.RunResultState.NG
             run_result.reason = "出力ﾌｧｲﾙ名間違いorなし"
             return run_result
-        (stdout_str, stdout_encode) = c.file2str(filepath)  # ファイルを読み込んで文字列に変換
-        c.debug(f"Encode of file[{case_num}]: {stdout_encode.value}", "run_exe")
-    if stdout_encode == c.Encode.ERROR:
+        (str_out, str_out_encode) = c.file2str(filepath)  # ファイルを読み込んで文字列に変換
+    elif testcase.check_type == c.CheckType.STDERR:
+        # stderrをチェック
+        (str_out, str_out_encode) = c.byte2str(r[1])  # エラー出力のバイトストリームを文字列に変換
+    else:
+        # stdoutをチェック
+        (str_out, str_out_encode) = c.byte2str(r[0])  # 標準出力のバイトストリームを文字列に変換
+    c.debug(c.str_indent(f"Encode of output[{case_num}]: {str_out_encode.value}", 1))
+    if str_out_encode == c.Encode.ERROR:
         run_result.result = c.RunResultState.ENCERR
         run_result.reason = "未サポートｴﾝｺｰﾄﾞ"
-    elif testcase.stdout is None:
+    elif testcase.check_type == c.CheckType.SKIP or testcase.str_out is None:
         run_result.result = c.RunResultState.SKIP
-        run_result.stdout = stdout_str
+        run_result.str_out = str_out
     else:
-        run_result.stdout = stdout_str
-        run_result.ratio = get_ratio(stdout_str, testcase.stdout)
-        if run_result.stdout == testcase.stdout:
+        run_result.str_out = str_out
+        run_result.ratio = get_ratio(str_out, testcase.str_out)
+        if run_result.str_out == testcase.str_out:
             run_result.result = c.RunResultState.OK
         else:
             run_result.result = c.RunResultState.NG
@@ -215,7 +223,7 @@ def compute_ratio(a, b, result_queue):
 def print_score(student: c.Student, progress):
     output = f"学籍番号: {student.student_number}  {progress}\n"
     for task_result in student.task_results:
-        output += c.str_indent(f"課題番号: {task_result.tasknumber}\n", 1)
+        output += c.str_indent(f"課題番号: {task_result.task.tasknumber}\n", 1)
         output += c.str_indent(f"コンパイル: {bool2str(task_result.compile_result.result, "OK", "NG")}\n", 2)
         if task_result.compile_result.result:
             run_results = task_result.run_results
@@ -312,15 +320,17 @@ def get_tasklist(filename) -> list[c.Task]:
             kadai_number = match["kadai_number"]
             testcase_num = int(match["testcase_num"])
             outfile: str | None = match["outfile"]
+            outfile_enable = True if outfile is not None else False
             testcases = read_casefiles(
-                kadai_number, testcase_num)
+                kadai_number, testcase_num, outfile_enable)
             tasks.append(c.Task(kadai_number, testcases, outfile))
         else:
             c.error("'tasks.txt'の構文エラー")
     return tasks
 
 
-def read_casefiles(tasknumber: str, case_num: int) -> list[c.Testcase] | None:
+def read_casefiles(tasknumber: str, case_num: int,
+                   outfile_enable: bool) -> list[c.Testcase] | None:
     if case_num == 0:
         return None
     testcases: list[c.Testcase] = []
@@ -328,13 +338,24 @@ def read_casefiles(tasknumber: str, case_num: int) -> list[c.Testcase] | None:
         testcase = c.Testcase()
         file_arg = os.path.join(c.CASE_PATH, f"{tasknumber}_{i}_arg.txt")
         file_out = os.path.join(c.CASE_PATH, f"{tasknumber}_{i}_out.txt")
+        file_fout = os.path.join(c.CASE_PATH, f"{tasknumber}_{i}_fout.txt")
+        file_eout = os.path.join(c.CASE_PATH, f"{tasknumber}_{i}_eout.txt")
         file_in = os.path.join(c.CASE_PATH, f"{tasknumber}_{i}_in.txt")
         if os.path.isfile(file_arg):
             testcase.arg = c.file2list(file_arg, True)[0]
-        if os.path.isfile(file_out):
-            (testcase.stdout, _) = c.file2str(file_out, True)
+        if os.path.isfile(file_fout):
+            if not outfile_enable:
+                c.error(f"ファイル出力のチェックが無効なのに，foutが指定されています．（{tasknumber}_{i}_fout.txt）")
+            (testcase.str_out, _) = c.file2str(file_fout, True)
+            testcase.check_type = c.CheckType.FILE
+        elif os.path.isfile(file_eout):
+            (testcase.str_out, _) = c.file2str(file_eout, True)
+            testcase.check_type = c.CheckType.STDERR
+        elif os.path.isfile(file_out):
+            (testcase.str_out, _) = c.file2str(file_out, True)
+            testcase.check_type = c.CheckType.STDOUT
         if os.path.isfile(file_in):
-            (testcase.stdin, _) = c.file2str(file_in, True)
+            (testcase.str_in, _) = c.file2str(file_in, True)
         testcases.append(testcase)
     return testcases
 
