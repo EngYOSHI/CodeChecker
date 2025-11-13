@@ -17,6 +17,7 @@ TIMEOUT_CALC_RATIO = 5
 NOCOLOR = False
 OVERWRITE= False
 INDENT = 2
+STR_CUT_LEN = -1
 
 
 class Color(str, Enum):
@@ -59,9 +60,11 @@ class Testcase:
     str_out: str | None = None
     str_in: str | None = None
 
-    def content(self, offset: int = 0) -> str:
+    def content(self, offset: int = 0, cut: int = -1) -> str:
         return str_indent(
-            f"arg: {self.arg}, CheckType: {self.check_type.value}, str_out: {repr(self.str_out)}, str_in: {repr(self.str_in)}",
+            f"arg: {self.arg}, CheckType: {self.check_type.value},"
+            f" str_out: {str_cut(repr(self.str_out), cut)},"
+            f" str_in: {str_cut(repr(self.str_in), cut)}",
             offset)
 
 
@@ -76,7 +79,7 @@ class Task:
         self.testcases = testcases
         self.outfile = outfile
 
-    def content(self, offset: int = 0) -> str:
+    def content(self, offset: int = 0, cut: int = -1) -> str:
         s = str_indent(f"課題番号: {self.tasknumber}\n", offset)
         if self.testcases is None:
             s += str_indent("コンパイルのみ\n", offset + 1)
@@ -84,7 +87,7 @@ class Task:
             if self.outfile is not None:
                 s += str_indent(f"ﾁｪｯｸ対象ﾌｧｲﾙ: {self.outfile}\n", offset + 1)
             for i, testcase in enumerate(self.testcases, 1):
-                s += str_indent(f"[{i}]: {testcase.content()}\n", offset + 1)
+                s += str_indent(f"[{i}]: {testcase.content(cut = cut)}\n", offset + 1)
         return s.rstrip("\n")
 
 
@@ -93,9 +96,10 @@ class CompileResult:
     reason: None | str = None  # コンパイル成功時None，失敗時失敗理由
     stdout: str = ""  # コンパイラ出力．ソースコードなし，エンコードエラー等の場合は空文字
 
-    def content(self, offset: int = 0) -> str:
+    def content(self, offset: int = 0, cut: int = -1) -> str:
         return str_indent(
-            f"result: {self.result}, reason: {self.reason}, stdout: {self.stdout}",
+            f"result: {self.result}, reason: {self.reason},"
+            f" stdout: {str_cut(self.stdout, cut)}",
             offset)
 
 
@@ -105,9 +109,10 @@ class RunResult:
     str_out: str | None = None  # 実行時の標準出力．実行失敗時や未実行時はNone
     ratio: float | None = None  # 一致率．実行成功時で計算がタイムアウトせず完了したら値が入る
 
-    def content(self, offset: int = 0) -> str:
+    def content(self, offset: int = 0, cut: int = -1) -> str:
         return str_indent(
-            f"result: {self.result.value}, reason: {self.reason}, str_out: {repr(self.str_out)}, ratio: {self.ratio}",
+            f"result: {self.result.value}, reason: {self.reason},"
+            f" str_out: {str_cut(repr(self.str_out), cut)}, ratio: {self.ratio}",
             offset)
 
 
@@ -119,12 +124,12 @@ class TaskResult:
     def __init__(self, task: Task):
         self.task = task
 
-    def content(self, offset: int = 0) -> str:
+    def content(self, offset: int = 0, cut: int = -1) -> str:
         s = str_indent(f"課題番号: {self.task.tasknumber}\n", offset)
-        s += str_indent(f"コンパイル結果: {self.compile_result.content()}\n", offset + 1)
+        s += str_indent(f"コンパイル結果: {self.compile_result.content(cut = cut)}\n", offset + 1)
         if self.run_results is not None:
             for i, run_result in enumerate(self.run_results):
-                s += str_indent(f"[{i}]: {run_result.content()}\n", offset + 2)
+                s += str_indent(f"[{i}]: {run_result.content(cut = cut)}\n", offset + 2)
         return s.rstrip("\n")
 
 
@@ -136,10 +141,10 @@ class Student:
         self.student_number = student_number
         self.task_results = []
 
-    def content(self, offset: int = 0) -> str:
+    def content(self, offset: int = 0, cut: int = -1) -> str:
         s = str_indent(f"学籍番号: {self.student_number}\n", offset)
         for task_result in self.task_results:
-            s += str_indent(f"{task_result.content()}\n", offset + 1)
+            s += str_indent(f"{task_result.content(cut = cut)}\n", offset + 1)
         return s.rstrip("\n")
 
 
@@ -198,6 +203,15 @@ def debug(msg: str, title: str | None = None):
             print(str_color(Color.BG_GREEN, title + ":") + str_color(Color.GREEN, " " + msg))
         else:
             print(str_color(Color.GREEN, msg))
+
+
+def str_cut(s: str, length: int):
+    if length < 0:
+        return s
+    elif len(s) > length:
+        return s[:length] + f"...(省略:{len(s) - length})"
+    else:
+        return s
 
 
 def file2list(filename: str, err_exit: bool = False) -> tuple[list[str], Encode]:

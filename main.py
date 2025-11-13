@@ -21,7 +21,7 @@ def main():
     tasks:list[c.Task] = get_tasklist(os.path.join(c.CASE_PATH, "tasks.txt"))
     print("課題数: " + str(len(tasks)))
     for task in tasks:
-        c.debug(task.content())
+        c.debug(task.content(cut = c.STR_CUT_LEN))
     srclist = c.get_filelist(c.SRC_PATH)
     print("ソースファイル数: " + str(len(srclist)))
     c.debug(str(srclist))
@@ -63,7 +63,7 @@ def eval(student_number: str, task: c.Task) -> c.TaskResult:
     # コンパイル
     temp_reset()  # Tempフォルダの初期化
     task_result.compile_result = compile(src_filename, current_process)
-    c.debug(task_result.compile_result.content(), "compile")
+    c.debug(task_result.compile_result.content(cut = c.STR_CUT_LEN), "compile")
     if task_result.compile_result.result:
         # コンパイル成功ならテスト実行
         task_result.run_results = run_loop(current_process + ".exe", task)
@@ -72,7 +72,7 @@ def eval(student_number: str, task: c.Task) -> c.TaskResult:
         else:
             c.debug("", "run_loop")
             for i, run_result in enumerate(task_result.run_results, 1):
-                c.debug(f"  [{i}] {run_result.content()}")
+                c.debug(f"  [{i}] {run_result.content(cut = c.STR_CUT_LEN)}")
         mv_temp2bin(current_process + ".exe")  # 実行が終わったバイナリはbinフォルダへ移動
     return task_result
 
@@ -145,7 +145,7 @@ def run_loop(exe: str, task: c.Task) -> list[c.RunResult]:
 
 def run_exe(exe: str, case_num: int,
             testcase: c.Testcase, outfile: None | str) -> c.RunResult:
-    c.debug(f"[{case_num}]", "run_exe")
+    c.debug(f"[{case_num + 1}]", "run_exe")
     cmd = [os.path.join(c.TEMP_PATH, exe)]
     if testcase.arg is not None:
         cmd += testcase.arg
@@ -180,7 +180,7 @@ def run_exe(exe: str, case_num: int,
     else:
         # stdoutをチェック
         (str_out, str_out_encode) = c.byte2str(r[0])  # 標準出力のバイトストリームを文字列に変換
-    c.debug(c.str_indent(f"Encode of output[{case_num}]: {str_out_encode.value}", 1))
+    c.debug(c.str_indent(f"Encode of output: {str_out_encode.value}", 1))
     if str_out_encode == c.Encode.ERROR:
         run_result.result = c.RunResultState.ENCERR
         run_result.reason = "未サポートｴﾝｺｰﾄﾞ"
@@ -394,6 +394,7 @@ def chkarg():
     parser.add_argument('--temp', help="一時ファイル格納先を指定", type=str, default=c.TEMP_PATH)
     parser.add_argument('--timeout', help="1プログラム当たりのタイムアウト時間を秒で指定", type=int, default=c.TIMEOUT)
     parser.add_argument('--ratio_timeout', help="一致率計算のタイムアウトを秒で指定", type=int, default=c.TIMEOUT_CALC_RATIO)
+    parser.add_argument('--strcut', help="一部のデバッグ出力の文字数上限を指定", type=int, default=c.STR_CUT_LEN)
     parser.add_argument('--nocolor', help="色付き出力を無効化", action='store_true')
     parser.add_argument('--overwrite', help="結果フォルダの上書きを許可", action='store_true')
     args = parser.parse_args()
@@ -405,6 +406,7 @@ def chkarg():
     c.TEMP_PATH = args.temp
     c.TIMEOUT = args.timeout
     c.TIMEOUT_CALC_RATIO = args.ratio_timeout
+    c.STR_CUT_LEN = args.strcut
     c.NOCOLOR = args.nocolor
     c.OVERWRITE = args.overwrite
     c.debug(f"Source: {c.SRC_PATH}", "chkarg")
@@ -414,6 +416,7 @@ def chkarg():
     c.debug(f"Temp: {c.TEMP_PATH}", "chkarg")
     c.debug(f"タイムアウト: {c.TIMEOUT}s", "chkarg")
     c.debug(f"一致率計算タイムアウト: {c.TIMEOUT_CALC_RATIO}s", "chkarg")
+    c.debug(f"デバッグ情報省略: {c.STR_CUT_LEN}", "chkarg")
     c.debug(f"Result上書き: {c.OVERWRITE}", "chkarg")
 
 
