@@ -350,7 +350,7 @@ def parse_tasklist(s: str) -> c.TaskDeclare:
     task_declare = c.TaskDeclare(parts[0], int(parts[1]))
     for part in parts[2:]:
         if part.startswith("outfile="):
-            if task_declare.outfile is not None:
+            if task_declare.outfile is None:
                 task_declare.outfile = getval(part)
             else:
                 c.error(f"tasks.txt: outfileは複数指定できません．")
@@ -379,7 +379,7 @@ def read_casefiles(task_declare: c.TaskDeclare) -> list[c.Testcase] | None:
         if i in task_declare.skip:
             testcase.out_type = task_declare.skip[i]
         elif os.path.isfile(file_fout):
-            if not task_declare.outfile is None:
+            if task_declare.outfile is None:
                 c.error(f"ファイル出力のチェックが無効なのに，foutが指定されています．（{tasknumber}_{i}_fout.txt）")
             (testcase.str_out, _) = c.file2str(file_fout, True)
             testcase.out_type = c.OutType.FILE
