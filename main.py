@@ -369,7 +369,14 @@ def parse_tasklist(s: str) -> c.TaskDeclare:
         elif skip(part):
             continue
         elif part.startswith("include="):
-            task_declare.include.append(getval(part))
+            # インクルードするファイルの存在と文字コードをチェック(UTF-8指定)
+            val = getval(part)
+            filepath = os.path.join(c.WORK_PATH, val)
+            if not os.path.isfile(filepath):
+                c.error(f"{parts[0]}で{part}が指定されていますが，workフォルダにありません．")
+            elif c.get_fileenc(filepath) != c.Encode.UTF8:
+                c.error(f"{filepath}とそのヘッダファイルは，UTF-8 BOMなしでエンコードしてください．")
+            task_declare.include.append(val)
         else:
             c.error(f"tasks.txt: 構文エラー  (\"{part}\"付近)")
     return task_declare
