@@ -63,7 +63,7 @@ def eval(student_number: str, task: c.Task) -> c.TaskResult:
     c.debug(str(src_filename), "srcfile")
     # コンパイル
     temp_reset()  # Tempフォルダの初期化
-    task_result.compile_result = compile(src_filename, current_process)
+    task_result.compile_result = compile(src_filename, current_process, task.include)
     c.debug(task_result.compile_result.content(cut = c.STR_CUT_LEN), "compile")
     if task_result.compile_result.result:
         # コンパイル成功ならテスト実行
@@ -102,7 +102,7 @@ def get_latest_src(student_number: str, tasknumber: str) -> str | None:
     return f"{student_number}_{tasknumber}.c"
 
 
-def compile(src_filename: str | None, exe_filename: str) -> c.CompileResult:
+def compile(src_filename: str | None, exe_filename: str, include: list[str]) -> c.CompileResult:
     compile_result = c.CompileResult()
     if src_filename is None:
         compile_result.result = False
@@ -110,13 +110,25 @@ def compile(src_filename: str | None, exe_filename: str) -> c.CompileResult:
         return compile_result
     copy_from = os.path.join(c.SRC_PATH, src_filename)
     shutil.copy(copy_from, c.TEMP_PATH)
-    src_abs = os.path.join(os.path.abspath(c.TEMP_PATH), src_filename)
-    exe_abs = os.path.join(os.path.abspath(c.TEMP_PATH), exe_filename)
-    enc = c.get_fileenc(src_abs)
-    cmd = ["gcc.exe", f"-finput-charset={enc.value}", src_abs, "-o", exe_abs]
-    c.debug(str(cmd), "compile")
-    r = subprocess.run(cmd, cwd=c.GCC_PATH, stdout=subprocess.PIPE,
-                       stderr=subprocess.STDOUT, shell=True)
+    if c.COMPILER == "gcc":
+        src_path = os.path.join(os.path.abspath(c.TEMP_PATH), src_filename)
+        exe_path = os.path.join(os.path.abspath(c.TEMP_PATH), exe_filename)
+        enc = c.get_fileenc(src_path)
+        cmd = ["gcc.exe", f"-finput-charset={enc.value}", src_path, "-o", exe_path]
+        c.debug(str(cmd), "compile")
+        r = subprocess.run(cmd, cwd=c.GCC_PATH, stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT, shell=True)
+    elif c.COMPILER == "msvc":
+        # cl /source-charset:utf-8 /Fe:{exe_filename}.exe src1.c src2.c
+        # ソースコード，インクルードするファイルはUTF-8でエンコードされている必要がある！
+        src_path = src_filename
+        enc = c.get_fileenc(os.path.join(os.path.abspath(c.TEMP_PATH), src_filename))
+        cmd = ["cl", "/nologo", "/source-charset:utf-8", f"/Fe:{exe_filename + ".exe"}", src_path] + include
+        c.debug(str(cmd), "compile")
+        r = subprocess.run(cmd, cwd=c.TEMP_PATH, stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT, shell=True)
+    else:
+        c.error(f"コンパイラ指定がエラーです． ({c.COMPILER})")
     (stdout_str, stdout_encode) = c.byte2str(r.stdout)
     c.debug(f"Encode of stdout: {stdout_encode.value}", "compile")
     compile_result.stdout = stdout_str
@@ -317,8 +329,8 @@ def get_tasklist(filename) -> list[c.Task]:
     for taskfile in taskfiles:
         task_declare = parse_tasklist(taskfile)
         testcases = read_casefiles(task_declare)
-        tasks.append(c.Task(task_declare.kadai_number,
-                            testcases, task_declare.outfile))
+        tasks.append(c.Task(task_declare.kadai_number, testcases,
+                            task_declare.outfile, task_declare.include))
     return tasks
 
 
@@ -356,6 +368,8 @@ def parse_tasklist(s: str) -> c.TaskDeclare:
                 c.error(f"tasks.txt: outfileは複数指定できません．")
         elif skip(part):
             continue
+        elif part.startswith("include="):
+            task_declare.include.append(getval(part))
         else:
             c.error(f"tasks.txt: 構文エラー  (\"{part}\"付近)")
     return task_declare

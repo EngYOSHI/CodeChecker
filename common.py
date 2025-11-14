@@ -18,6 +18,7 @@ NOCOLOR = False
 OVERWRITE= False
 INDENT = 2
 STR_CUT_LEN = -1
+COMPILER = "msvc"  # msvc or gcc
 
 
 class Color(str, Enum):
@@ -65,11 +66,13 @@ class TaskDeclare:
     testcase_num: int
     outfile: str | None = None
     skip: dict[int, OutType]
+    include: list[str]
 
     def __init__(self, kadai_number: str, testcase_num: int):
         self.kadai_number = kadai_number
         self.testcase_num = testcase_num
         self.skip = {}
+        self.include = []
 
 
 class Testcase:
@@ -91,12 +94,14 @@ class Task:
     tasknumber: str  # 課題番号
     testcases: list[Testcase] | None  # テストケースのリスト，コンパイルのみの場合はNone
     outfile: None | str = None  # ファイル出力をチェックする場合はそのファイル名
+    include: list[str]  # コンパイルの際に追加で必要なファイル名
 
-    def __init__(self, tasknumber: str,
-                 testcases: list[Testcase] | None, outfile: None | str):
+    def __init__(self, tasknumber: str, testcases: list[Testcase] | None,
+                 outfile: None | str, include: list[str]):
         self.tasknumber = tasknumber
         self.testcases = testcases
         self.outfile = outfile
+        self.include = include
 
     def content(self, offset: int = 0, cut: int = -1) -> str:
         s = str_indent(f"課題番号: {self.tasknumber}\n", offset)
@@ -105,6 +110,8 @@ class Task:
         else:
             if self.outfile is not None:
                 s += str_indent(f"ﾁｪｯｸ対象ﾌｧｲﾙ: {self.outfile}\n", offset + 1)
+            if len(self.include) > 0:
+                s += str_indent(f"インクルード: {self.include}\n", offset + 1)
             for i, testcase in enumerate(self.testcases, 1):
                 s += str_indent(f"[{i}]: {testcase.content(cut = cut)}\n", offset + 1)
         return s.rstrip("\n")
