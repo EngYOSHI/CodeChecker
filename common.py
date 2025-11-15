@@ -6,7 +6,6 @@ from enum import Enum
 
 DEBUG = False
 PRINT_SCORE = True
-GCC_PATH = "mingw64\\bin\\"
 SRC_PATH = "src\\"
 WORK_PATH = "work\\"
 CASE_PATH = "case\\"
@@ -18,7 +17,6 @@ NOCOLOR = False
 OVERWRITE= False
 INDENT = 2
 STR_CUT_LEN = -1
-COMPILER = "msvc"  # msvc or gcc
 
 
 class Color(str, Enum):
@@ -120,13 +118,13 @@ class Task:
 class CompileResult:
     result: bool = True  # コンパイル成功時True, 失敗時False
     reason: None | str = None  # コンパイル成功時None，失敗時失敗理由
+    compiler: str = ""
     stdout: str = ""  # コンパイラ出力．ソースコードなし，エンコードエラー等の場合は空文字
 
     def content(self, offset: int = 0, cut: int = -1) -> str:
         return str_indent(
-            f"result: {self.result}, reason: {self.reason},"
-            f" stdout: {str_cut(self.stdout, cut)}",
-            offset)
+            f"result: {self.result}, reason: {self.reason}, compiler: {self.compiler},"
+            f" stdout: {str_cut(self.stdout, cut)}\n", offset)
 
 
 class RunResult:

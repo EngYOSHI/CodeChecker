@@ -116,34 +116,29 @@ def compile(src_filename: str | None, exe_filename: str, include: list[str]) -> 
                        c.Encode.UTF8)
     else:
         shutil.copy(copy_from, c.TEMP_PATH)
-    if c.COMPILER == "gcc":
-        src_path = os.path.join(os.path.abspath(c.TEMP_PATH), src_filename)
-        exe_path = os.path.join(os.path.abspath(c.TEMP_PATH), exe_filename)
-        enc = c.get_fileenc(src_path)
-        cmd = ["gcc.exe", f"-finput-charset={enc.value}", src_path, "-o", exe_path]
-        c.debug(str(cmd), "compile")
-        r = subprocess.run(cmd, cwd=c.GCC_PATH, stdout=subprocess.PIPE,
+    # ソースコード，インクルードするファイルはUTF-8でエンコードされている必要がある！
+    cmd_msvc = ["cl", "/nologo", "/source-charset:utf-8", f"/Fe:{exe_filename + ".exe"}", src_filename] + include
+    c.debug(str(cmd_msvc), "compile")
+    res_msvc = subprocess.run(cmd_msvc, cwd=c.TEMP_PATH, stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT, shell=True)
+    (stdout_str_msvc, _) = c.byte2str(res_msvc.stdout)
+    compile_result.stdout = stdout_str_msvc
+    compile_result.compiler = "msvc"
+    retcode = res_msvc.returncode
+    if retcode != 0 and "C1083" in stdout_str_msvc:
+        c.debug("Error C1083検出．gccに切り替え．", "compile")
+        cmd_gcc = ["gcc.exe", f"-finput-charset=utf-8", src_filename] + include + ["-o", exe_filename]
+        c.debug(str(cmd_gcc), "compile")
+        res_gcc = subprocess.run(cmd_gcc, cwd=c.TEMP_PATH, stdout=subprocess.PIPE,
                         stderr=subprocess.STDOUT, shell=True)
-    elif c.COMPILER == "msvc":
-        # cl /source-charset:utf-8 /Fe:{exe_filename}.exe src1.c src2.c
-        # ソースコード，インクルードするファイルはUTF-8でエンコードされている必要がある！
-        src_path = src_filename
-        enc = c.get_fileenc(os.path.join(os.path.abspath(c.TEMP_PATH), src_filename))
-        cmd = ["cl", "/nologo", "/source-charset:utf-8", f"/Fe:{exe_filename + ".exe"}", src_path] + include
-        c.debug(str(cmd), "compile")
-        r = subprocess.run(cmd, cwd=c.TEMP_PATH, stdout=subprocess.PIPE,
-                        stderr=subprocess.STDOUT, shell=True)
-    else:
-        c.error(f"コンパイラ指定がエラーです． ({c.COMPILER})")
-    (stdout_str, stdout_encode) = c.byte2str(r.stdout)
-    c.debug(f"Encode of stdout: {stdout_encode.value}", "compile")
-    compile_result.stdout = stdout_str
-    if r.returncode != 0:
+        (stdout_str_gcc, _) = c.byte2str(res_gcc.stdout)
+        compile_result.stdout += "\n-------gcc-------\n" + stdout_str_gcc
+        compile_result.compiler = "gcc"
+        retcode = res_gcc.returncode
+    if retcode != 0:
         #コンパイル失敗
         compile_result.result = False
         compile_result.reason = "コンパイルエラー"
-        if stdout_encode == c.Encode.ERROR:
-            compile_result.reason += " + 未サポートｴﾝｺｰﾄﾞ"
     return compile_result
 
 
@@ -309,8 +304,6 @@ def temp_reset():
 
 
 def chkpath():
-    if not os.path.isdir(c.GCC_PATH):
-        c.error(f"コンパイラがないか，正しく配置されていません．({c.GCC_PATH})")
     if not os.path.isdir(c.SRC_PATH):
         c.error(f"ソースファイルの格納先({c.SRC_PATH})がありません．")
     if not os.path.isdir(c.WORK_PATH):

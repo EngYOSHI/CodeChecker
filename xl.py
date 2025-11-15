@@ -15,7 +15,7 @@ def write_xl(students: list[c.Student]):
     wb.properties.creator = 'CodeChecker'
     wb.properties.lastModifiedBy = 'CodeChecker'
     ws = wb["Sheet"]
-    ws.append(["学籍番号", "課題番号", "ｺﾝﾊﾟｲﾙ\n結果", "コンパイル備考", "コンパイルログ",
+    ws.append(["学籍番号", "課題番号", "ｺﾝﾊﾟｲﾙ\n結果", "コンパイル備考", "コンパイルログ", "ｺﾝﾊﾟｲﾗ",
                "ﾃｽﾄｹｰｽ", "テスト\n結果", "テスト結果備考", "ﾃｽﾄｹｰｽ\n一致率", "出力種類", "出力"])
     ws.row_dimensions[1].height = 27
     # 先頭行にスタイル適用
@@ -24,13 +24,13 @@ def write_xl(students: list[c.Student]):
                                    vertical = "center", wrapText = True)
         cell.font = Font(bold = True)
     # 列幅を設定
-    column_width = {"A":11, "B":10, "C":10, "D":20, "E":20,
-                    "F":10, "G":10, "H":23, "I":10, "J":10, "K":30}
+    column_width = {"A":11, "B":10, "C":10, "D":20, "E":20, "F":8,
+                    "G":10, "H":10, "I":23, "J":10, "K":10, "L":30}
     for column, width in column_width.items():
         ws.column_dimensions[column].width = width
     ws.freeze_panes = "A2" #先頭行を固定
-    ws.auto_filter.ref = "A1:K1"  # フィルタを設定
-    wraptext = ["D", "E", "H", "K"]
+    ws.auto_filter.ref = "A1:L1"  # フィルタを設定
+    wraptext = ["D", "E", "I", "L"]
     row = 2
     for student in students:
         for task_results in student.task_results:
@@ -47,27 +47,28 @@ def write_xl(students: list[c.Student]):
                 write_common(ws, row, student.student_number, task.tasknumber,
                             compile_result.result, compile_result.reason,
                             compile_result.stdout)
-                ws["F" + str(row)].value = task.tasknumber + f" [{str(testcase_number + 1)}]"
-                ws["G" + str(row)].value = run_result.result.value
-                cellfill(ws["G" + str(row)],
+                ws["F" + str(row)].value = compile_result.compiler
+                ws["G" + str(row)].value = task.tasknumber + f" [{str(testcase_number + 1)}]"
+                ws["H" + str(row)].value = run_result.result.value
+                cellfill(ws["H" + str(row)],
                          [(c.RunResultState.OK, "00b050"),
                           (c.RunResultState.NG, "e09694"),
                           (c.RunResultState.SKIP, "c5d9f1"),
                           (c.RunResultState.ENCERR, "a2a2a2"),
                           (c.RunResultState.NOTEST, "a2a2a2")]
                         )
-                ws["G" + str(row)].alignment = Alignment(horizontal = "center")
+                ws["H" + str(row)].alignment = Alignment(horizontal = "center")
                 run_result_reason = "" if run_result.reason is None else run_result.reason.value
-                ws["H" + str(row)].value = valconv(run_result_reason, str, none="")
+                ws["I" + str(row)].value = valconv(run_result_reason, str, none="")
                 if run_result.ratio is None and run_result.reason == c.RunResultReason.WRONG:
                     # 一致率計算がタイムアウトした場合
-                    ws["I" + str(row)].value = "ﾀｲﾑｱｳﾄ"
+                    ws["J" + str(row)].value = "ﾀｲﾑｱｳﾄ"
                 else:
-                    ws["I" + str(row)].value = valconv(run_result.ratio, float, none="")
-                    ws["I" + str(row)].number_format = "0.000"
+                    ws["J" + str(row)].value = valconv(run_result.ratio, float, none="")
+                    ws["J" + str(row)].number_format = "0.000"
                 if task.testcases is not None:
-                    ws["J" + str(row)].value = task.testcases[testcase_number].out_type.value
-                ws["K" + str(row)].value = str_escape(run_result.str_out)
+                    ws["K" + str(row)].value = task.testcases[testcase_number].out_type.value
+                ws["L" + str(row)].value = str_escape(run_result.str_out)
                 row += 1
     # 全体的な設定
     for row2 in range(2, row):
