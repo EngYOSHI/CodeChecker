@@ -22,26 +22,27 @@
 # 動作環境
 ```
 Windows 10 / 11
-python 3.12.3
+python 3.13.9
 openpyxl==3.1.5
 Levenshtein == 0.27.3
 ```
 
 # インストール
-1. python 3.12.3をダウンロードしてインストール  
-   https://www.python.org/ftp/python/3.12.3/python-3.12.3-amd64.exe
+1. python 3.13.9をダウンロードしてインストール  
+   https://www.python.org/ftp/python/3.13.9/python-3.13.9-amd64.exe  
+   `Add python.exe to PATH`にチェックしてInstall now  
 
-2. 依存関係のインストール
+3. 依存関係のインストール
    コマンドプロンプトで以下のコマンドを実行
    ```
-   py -3.12 -m pip install openpyxl==3.1.5 Levenshtein==0.27.3
+   py -3.13 -m pip install openpyxl==3.1.5 Levenshtein==0.27.3
    ```
    `Successfully installed *****`か，`Requirement already satisfied`が返ってくればOK
 
-3. 本プログラムのソースコードをダウンロードして，圧縮ファイルを任意の場所に展開  
+4. 本プログラムのソースコードをダウンロードして，圧縮ファイルを任意の場所に展開  
    https://github.com/EngYOSHI/CodeChecker/archive/refs/heads/master.zip
 
-4. gccのインストール
+5. gccのインストール
    1. Cコンパイラ(mingw-w64)のバイナリをダウンロードする
       `x86_64-xx.x.x-release-win32-seh-ucrt-rt...`をダウンロードする  
       https://github.com/niXman/mingw-builds-binaries/releases/latest
@@ -49,18 +50,19 @@ Levenshtein == 0.27.3
    2. ダウンロードしたCコンパイラの圧縮ファイルを，`％LOCALAPPDATA%\mingw64\`に展開する
       なお7zで圧縮されているので，展開のために7-zipなどのアーカイバが必要な可能性あり  
       このとき，`％LOCALAPPDATA%\mingw64\`フォルダ配下に`bin`, `include`フォルダなどが配置されている状態にすること
-   3. PATHを通す
+   3. `％LOCALAPPDATA%\mingw64\bin`をユーザのPATHに通す
 
 8. Build Tools for Visual Studio 2022をインストール  
    1. インストール  
       https://learn.microsoft.com/ja-jp/visualstudio/releases/2022/release-history#fixed-version-bootstrappers  
-      Currentのビルドツールをダウンロードしてインストールする．インストールの際，特に何か変更する必要はない．
+      Currentのビルドツールをダウンロードして起動し，「C++によるデスクトップ開発」にチェックしてインストール．
    2. x64 Native Tools Command Prompt for VSをスタートメニューから起動してパスを取得
-      - PATHに以下の結果を追加
+      - ユーザのPATHに，以下の結果の「フォルダパスまで」を追加
         ```
         C:\Windows\System32\where.exe cl.exe
         ```
-      - 以下の結果を，それぞれ環境変数を作成して追加
+      - 以下の結果を，それぞれユーザの環境変数を作成して追加  
+        「新規」を押して，変数名は変数名そのまま，変数値に結果をそのままペースト
         ```
         echo %INCLUDE%
         echo %LIB%
