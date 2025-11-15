@@ -283,6 +283,14 @@ def get_fileenc(filename: str) -> Encode:
     return enc
 
 
+def conv_fileenc(from_file: str, from_enc: Encode, to_file: str, to_enc: Encode):
+    with open(from_file, 'r', encoding=from_enc.value) as f_from:
+        with open(to_file, 'x', encoding=to_enc.value) as f_to:
+            basename = os.path.basename(from_file)
+            debug(f"{basename}: {from_enc.value} -> {to_enc.value}", "conv_fileenc")
+            f_to.write(f_from.read())
+
+
 def get_filelist(dir: str) -> list[str]:
     """dirに入っているファイルのファイル名をlist[str]でsrclistに返す"""
     li = [

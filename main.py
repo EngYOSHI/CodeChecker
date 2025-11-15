@@ -109,7 +109,13 @@ def compile(src_filename: str | None, exe_filename: str, include: list[str]) -> 
         compile_result.reason = "未提出orﾌｧｲﾙ名間違い"
         return compile_result
     copy_from = os.path.join(c.SRC_PATH, src_filename)
-    shutil.copy(copy_from, c.TEMP_PATH)
+    # ソースコードのエンコードがSJISの場合はUTF-8に変換したものをコピー
+    if c.get_fileenc(copy_from) == c.Encode.SJIS:
+        c.conv_fileenc(copy_from, c.Encode.SJIS,
+                       os.path.join(c.TEMP_PATH, src_filename),
+                       c.Encode.UTF8)
+    else:
+        shutil.copy(copy_from, c.TEMP_PATH)
     if c.COMPILER == "gcc":
         src_path = os.path.join(os.path.abspath(c.TEMP_PATH), src_filename)
         exe_path = os.path.join(os.path.abspath(c.TEMP_PATH), exe_filename)
