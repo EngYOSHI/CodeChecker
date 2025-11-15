@@ -1,6 +1,7 @@
 import os
 import openpyxl
 from openpyxl.styles import Alignment, PatternFill, Font
+from openpyxl.styles.numbers import FORMAT_TEXT
 import re
 
 import common as c
@@ -82,7 +83,9 @@ def write_xl(students: list[c.Student]):
 def write_common(ws, row: int, student_number: str, task_number: str,
                  compile_result: bool, compile_reason: str | None, compile_stdout: str):
     ws["A" + str(row)].value = student_number
+    ws["A" + str(row)].number_format = FORMAT_TEXT
     ws["B" + str(row)].value = task_number
+    ws["B" + str(row)].number_format = FORMAT_TEXT
     ws["C" + str(row)].value = valconv(compile_result, bool, "OK", "NG")
     cellfill(ws["C" + str(row)], [("OK", "00b050"),("NG", "e09694")])
     ws["C" + str(row)].alignment = Alignment(horizontal = "center")
