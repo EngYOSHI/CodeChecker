@@ -1,11 +1,11 @@
 import subprocess
 import os
 import re
-import difflib
 import argparse
 import shutil
 import multiprocessing
 import shlex
+from rapidfuzz import fuzz
 
 import common as c
 import xl
@@ -213,7 +213,7 @@ def run_exe(exe: str, case_num: int,
         run_result.str_out = str_out
         if run_result.str_out == testcase.str_out:
             run_result.result = c.RunResultState.OK
-            run_result.ratio = 1.0
+            run_result.ratio = 100.0
         else:
             run_result.result = c.RunResultState.NG
             run_result.ratio = get_ratio(str_out, testcase.str_out)
@@ -237,7 +237,7 @@ def get_ratio(a, b) -> float | None:
 
 def compute_ratio(a, b, result_queue):
     try:
-        ratio = round(difflib.SequenceMatcher(None, a, b, False).ratio(), 3)
+        ratio = round(fuzz.ratio(a, b), 3)
         result_queue.put(ratio)
     except Exception as e:
         result_queue.put(None)
