@@ -47,7 +47,7 @@ Levenshtein == 0.27.3
       `x86_64-xx.x.x-release-win32-seh-ucrt-rt...`をダウンロードする  
       https://github.com/niXman/mingw-builds-binaries/releases/latest
 
-   2. ダウンロードしたCコンパイラの圧縮ファイルを，`％LOCALAPPDATA%\mingw64\`に展開する
+   2. ダウンロードしたCコンパイラの圧縮ファイルを，`％LOCALAPPDATA%\mingw64\`に展開する  
       なお7zで圧縮されているので，展開のために7-zipなどのアーカイバが必要な可能性あり  
       このとき，`％LOCALAPPDATA%\mingw64\`フォルダ配下に`bin`, `include`フォルダなどが配置されている状態にすること
    3. `％LOCALAPPDATA%\mingw64\bin`をユーザのPATHに通す
@@ -127,7 +127,7 @@ Levenshtein == 0.27.3
 
 ### 標準出力 (\~_out.txt), 標準エラー出力 (\~_eout.txt), ファイル出力 (\~_fout.txt)
 プログラムの出力（実行結果）の模範解答を用意する．  
-ここでファイル名は，標準出力の場合は`\~_out.txt`，標準エラー出力の場合は`\~_eout.txt`，ファイル出力の場合は`\~_fout.txt`とする．  
+ここでファイル名は，標準出力の場合は `~_out.txt`，標準エラー出力の場合は `~_eout.txt`，ファイル出力の場合は `~_fout.txt`とする．  
 例えば，課題1-1aにおける1個目のテストケースにおける標準出力の場合，`1-1a_1_out.txt`となる．  
 ここで，同一テストケースに2つ以上の出力ファイルを用意することはできない．  
 もし複数種類存在する場合，ファイル出力(fout) -> 標準エラー出力(eout) -> 標準出力(out)の順番で，先に見つかったものが読み込まれる．  
