@@ -2,6 +2,7 @@ import sys
 import os
 import shutil
 from enum import Enum
+from dataclasses import dataclass, field
 
 
 DEBUG = False
@@ -59,24 +60,20 @@ class RunResultReason(str, Enum):
     WRONG = "ﾃｽﾄｹｰｽと不一致"
 
 
+@dataclass
 class TaskDeclare:
     kadai_number: str
     testcase_num: int
     outfile: str | None = None
-    skip: dict[int, OutType]
-    include: list[str]
-
-    def __init__(self, kadai_number: str, testcase_num: int):
-        self.kadai_number = kadai_number
-        self.testcase_num = testcase_num
-        self.skip = {}
-        self.include = []
+    skip: dict[int, OutType] = field(default_factory=dict)
+    include: list[str] = field(default_factory=list)
 
 
+@dataclass(init=False)
 class Testcase:
     # str_outがNoneの場合は実行だけ行い比較はしない（スキップ）
-    arg: list[str] | None = None
     out_type: OutType
+    arg: list[str] | None = None
     str_out: str | None = None
     str_in: str | None = None
 
@@ -88,18 +85,12 @@ class Testcase:
             offset)
 
 
+@dataclass
 class Task:
     tasknumber: str  # 課題番号
     testcases: list[Testcase] | None  # テストケースのリスト，コンパイルのみの場合はNone
-    outfile: None | str = None  # ファイル出力をチェックする場合はそのファイル名
     include: list[str]  # コンパイルの際に追加で必要なファイル名
-
-    def __init__(self, tasknumber: str, testcases: list[Testcase] | None,
-                 outfile: None | str, include: list[str]):
-        self.tasknumber = tasknumber
-        self.testcases = testcases
-        self.outfile = outfile
-        self.include = include
+    outfile: None | str = None  # ファイル出力をチェックする場合はそのファイル名
 
     def content(self, offset: int = 0, cut: int = -1) -> str:
         s = str_indent(f"課題番号: {self.tasknumber}\n", offset)
@@ -115,6 +106,7 @@ class Task:
         return s.rstrip("\n")
 
 
+@dataclass(init=False)
 class CompileResult:
     result: bool = True  # コンパイル成功時True, 失敗時False
     reason: None | str = None  # コンパイル成功時None，失敗時失敗理由
@@ -127,6 +119,7 @@ class CompileResult:
             f" stdout: {str_cut(self.stdout, cut)}\n", offset)
 
 
+@dataclass(init=False)
 class RunResult:
     result: RunResultState = RunResultState.SKIP  # テスト結果がテストケースと一致時OK，テスト失敗時NG，スキップ時SKIP
     reason: RunResultReason | None = None  # テスト失敗時はその理由．テスト成功時はNone
@@ -141,6 +134,7 @@ class RunResult:
             offset)
 
 
+@dataclass(init=False)
 class TaskResult:
     task: Task
     compile_result: CompileResult
@@ -158,13 +152,10 @@ class TaskResult:
         return s.rstrip("\n")
 
 
+@dataclass
 class Student:
     student_number: str  # 学籍番号
-    task_results: list[TaskResult]
-
-    def __init__(self, student_number: str):
-        self.student_number = student_number
-        self.task_results = []
+    task_results: list[TaskResult] = field(default_factory=list)
 
     def content(self, offset: int = 0, cut: int = -1) -> str:
         s = str_indent(f"学籍番号: {self.student_number}\n", offset)

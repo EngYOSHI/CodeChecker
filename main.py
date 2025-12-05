@@ -329,7 +329,7 @@ def get_tasklist(filename) -> list[c.Task]:
         task_declare = parse_tasklist(taskfile)
         testcases = read_casefiles(task_declare)
         tasks.append(c.Task(task_declare.kadai_number, testcases,
-                            task_declare.outfile, task_declare.include))
+                            task_declare.include, task_declare.outfile))
     return tasks
 
 
