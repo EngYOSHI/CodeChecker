@@ -1,4 +1,4 @@
 @echo off
-py -3.12 src_rename.py
+py -3.13 src_rename.py
 
 pause
